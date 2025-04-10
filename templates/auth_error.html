@@ -100,6 +100,9 @@
         <div class="error-card">
             <div class="error-icon">❌</div>
             <h1>Authentication Error</h1>
+            {% if session.get('auth_error') %}
+            <p class="error-details">{{ session.get('auth_error') }}</p>
+            {% endif %}
             <p>We encountered an issue during the authentication process. This could be due to incorrect credentials, expired session, or a temporary system error.</p>
             
             <a href="{{ url_for('index') }}" class="return-button">

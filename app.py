@@ -41,7 +41,18 @@ auth0_client_secret = os.getenv('AUTH0_CLIENT_SECRET')
 auth0_callback_url = os.getenv('AUTH0_CALLBACK_URL', 'http://localhost:5000/callback')
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # or use a fixed secret key for production
+# Use a fixed secret key for production or get from environment variable
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'cuadrada-secure-key-for-sessions-2025')
+
+# Configure session for production
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+)
+
+# Increase session lifetime (default is 31 days)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 # Auth0 setup
 oauth = OAuth(app)
@@ -391,8 +402,14 @@ def find_file_with_secure_path(base_path, filename):
 @app.route('/login', methods=['GET'])
 def login():
     """Route for login with Auth0"""
+    # Ensure session is cleared before login
+    session.clear()
+    
+    # Get callback URL from environment or use default
+    callback_url = os.getenv('AUTH0_CALLBACK_URL', url_for('callback', _external=True))
+    
     return auth0.authorize_redirect(
-        redirect_uri=auth0_callback_url,
+        redirect_uri=callback_url,
         audience=f'https://{auth0_domain}/api/v2/'
     )
 
@@ -400,6 +417,9 @@ def login():
 def callback():
     """Auth0 callback handler"""
     try:
+        # Make session permanent
+        session.permanent = True
+        
         # Get token from Auth0
         token = auth0.authorize_access_token()
         
@@ -447,7 +467,17 @@ def callback():
         return redirect(url_for('index'))
         
     except Exception as e:
-        print(f"Auth0 login error: {str(e)}")
+        # Log the full error for debugging
+        error_message = f"Auth0 login error: {str(e)}"
+        print(error_message)
+        traceback.print_exc()
+        
+        # Clear any partial session data
+        session.clear()
+        
+        # Store error in session for display
+        session['auth_error'] = error_message
+        
         return redirect(url_for('auth_error'))
 
 @app.route('/auth-error')
