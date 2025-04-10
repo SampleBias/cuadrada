@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cuadrada - Autonomous Peer Review System</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='purple' stroke-width='10'/></svg>">
+    <style>
+        :root {
+            --primary: #800080;
+            --bg-dark: #0a0a0a;
+            --text-light: #e0e0e0;
+            --accent: #b980ff;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+            margin-right: 20px;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent);
+        }
+        
+        .user-name {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .logout-button {
+            background: rgba(128, 0, 128, 0.2);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .logout-button:hover {
+            background: rgba(128, 0, 128, 0.3);
+            transform: translateY(-1px);
+        }
+
+        h1 {
+            color: var(--text-light);
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+
+        .login-section {
+            text-align: center;
+            border: 1px solid rgba(128, 0, 128, 0.3);
+            background: rgba(128, 0, 128, 0.05);
+            padding: 30px;
+            margin: 40px 0;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 24px rgba(128, 0, 128, 0.1);
+        }
+
+        .login-button {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
+        }
+
+        .upload-form {
+            border: 1px solid rgba(128, 0, 128, 0.3);
+            background: rgba(128, 0, 128, 0.05);
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 24px rgba(128, 0, 128, 0.1);
+        }
+
+        .upload-form input[type="file"],
+        .upload-form input[type="text"] {
+            margin: 15px 0;
+            border: 1px dashed var(--accent);
+            padding: 10px;
+            border-radius: 8px;
+            width: calc(100% - 22px);
+            background: transparent;
+            color: var(--text-light);
+        }
+
+        .upload-form input[type="submit"] {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .upload-form input[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
+        }
+
+        .info-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: rgba(128, 0, 128, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(128, 0, 128, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .info-section h2 {
+            color: var(--accent);
+            margin-top: 0;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+        
+        .info-section p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 10, 0.95);
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+        }
+        
+        .loading-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 80%;
+            max-width: 500px;
+        }
+        
+        .loading-spinner {
+            width: 100%;
+            height: 8px;
+            background: rgba(128, 0, 128, 0.1);
+            margin: 20px auto;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .loading-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 4px;
+            animation: progress 15s linear forwards;
+        }
+        
+        .loading-steps {
+            display: flex;
+            justify-content: space-between;
+            margin: 30px 0;
+        }
+        
+        .loading-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 30%;
+        }
+        
+        .loading-step-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+        
+        .loading-step-text {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        
+        .loading-step.active .loading-step-icon {
+            opacity: 1;
+            color: var(--accent);
+            animation: pulse 2s infinite;
+        }
+        
+        .loading-step.active .loading-step-text {
+            opacity: 1;
+            color: var(--accent);
+        }
+        
+        .loading-text {
+            color: var(--accent);
+            font-size: 18px;
+            margin-top: 20px;
+            letter-spacing: 1px;
+        }
+        
+        @keyframes progress {
+            0% { width: 5%; }
+            20% { width: 30%; }
+            50% { width: 60%; }
+            80% { width: 85%; }
+            95% { width: 95%; }
+            100% { width: 100%; }
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.6; transform: scale(1); }
+        }
+
+        .square-logo {
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .support-section {
+            margin-top: 20px;
+            text-align: center;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        .support-section:hover {
+            opacity: 1;
+        }
+        
+        .support-link {
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(128, 0, 128, 0.05);
+            border: 1px solid rgba(128, 0, 128, 0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .support-link:hover {
+            background: rgba(128, 0, 128, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .support-icon {
+            opacity: 0.8;
+        }
+
+        .upload-preview {
+            position: relative;
+            border: 2px dashed var(--accent);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            background: rgba(128, 0, 128, 0.05);
+        }
+
+        .upload-preview:hover {
+            background: rgba(128, 0, 128, 0.1);
+            border-style: solid;
+        }
+
+        .upload-preview input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .preview-text {
+            color: var(--text-light);
+            font-size: 16px;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pay-button {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.5;
+        }
+
+        .pay-button:not(:disabled) {
+            opacity: 1;
+        }
+
+        .pay-button:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
+        }
+
+        .file-selected .preview-text {
+            color: var(--accent);
+        }
+
+        .demo-button {
+            background: rgba(128, 0, 128, 0.2);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+        }
+
+        .demo-button:not(:disabled) {
+            opacity: 1;
+        }
+
+        .demo-button:not(:disabled):hover {
+            background: rgba(128, 0, 128, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .leaderboard-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: rgba(128, 0, 128, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(128, 0, 128, 0.3);
+        }
+
+        .leaderboard-section h2 {
+            color: var(--accent);
+            margin-top: 0;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+
+        .leaderboard-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .leaderboard-card {
+            position: relative;
+            padding: 30px;
+            background: rgba(128, 0, 128, 0.1);
+            border-radius: 16px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .leaderboard-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .crown-icon {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        .researcher-avatar {
+            width: 100px;
+            height: 100px;
+            margin: 20px auto;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid var(--accent);
+        }
+
+        .researcher-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .researcher-name {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 10px 0;
+        }
+
+        .researcher-stats {
+            margin-top: 15px;
+        }
+
+        .stat .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--accent);
+            display: block;
+        }
+
+        .stat .label {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: rgba(128, 0, 128, 0.05);
+            border-radius: 12px;
+            transition: transform 0.2s ease;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateX(10px);
+        }
+
+        .rank {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+            width: 50px;
+            text-align: center;
+        }
+
+        .researcher-info {
+            flex: 1;
+        }
+
+        .researcher-info .name {
+            font-weight: 500;
+        }
+
+        .researcher-info .papers {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        @media (max-width: 768px) {
+            .leaderboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .leaderboard-card {
+                max-width: 300px;
+                margin: 0 auto;
+            }
+        }
+
+        .start-review-button {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.5;
+        }
+
+        .start-review-button:not(:disabled) {
+            opacity: 1;
+        }
+
+        .start-review-button:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-container">
+            <h1>
+                <svg 
+                    class="square-logo"
+                    style="width: 60px; height: 60px; margin-right: 10px; vertical-align: middle;" 
+                    viewBox="0 0 100 100"
+                >
+                    <rect 
+                        x="10" y="10" 
+                        width="80" height="80" 
+                        fill="none" 
+                        stroke="url(#gradient)" 
+                        stroke-width="10"
+                    >
+                        <animate attributeName="stroke-dasharray" 
+                            values="0,1000;320,1000" 
+                            dur="2s" 
+                            fill="freeze" 
+                        />
+                    </rect>
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--primary)" />
+                            <stop offset="100%" style="stop-color:var(--accent)" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                Cuadrada - Autonomous AI Peer Review
+            </h1>
+            {% if session.get('logged_in') %}
+            <div class="user-profile">
+                <img src="{{ session.get('user_avatar') }}" alt="avatar" class="user-avatar">
+                <span class="user-name">{{ session.get('user_name') }}</span>
+            </div>
+            <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
+            {% endif %}
+        </div>
+        
+        {% if not session.get('logged_in') %}
+        <div class="login-section">
+            <h2>Welcome to Cuadrada</h2>
+            <p>Our AI-powered peer review system helps researchers validate their work with instant feedback.</p>
+            <a href="{{ url_for('login') }}" class="login-button">Login to Continue</a>
+        </div>
+        {% else %}
+        <div class="upload-form">
+            <form id="reviewForm" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                <h2>Upload your paper for AI peer review</h2>
+                <input type="file" name="paper" accept=".pdf" required>
+                <input type="text" name="paper_title" placeholder="Enter paper title (for certificate)" required>
+                <input type="submit" value="Submit for Review">
+            </form>
+        </div>
+        {% endif %}
+
+        <div class="info-section">
+            <h2>How Does Cuadrada Work?</h2>
+            <p>
+                Cuadrada revolutionizes academic peer review by using AI agentic experts that analyze research papers instantly. 
+                When you submit your paper, Cuadrada's AI agentic system assigns specialized reviewers based on your paper's field - 
+                just like a journal editor would, but in seconds.
+            </p>
+            <p>
+                These AI agent reviewers evaluate your work using standardized criteria, checking everything from methodology to impact. 
+                Unlike human reviewers who might be influenced by personal bias or academic politics, Cuadrada's assessment is 
+                purely merit-based.
+            </p>
+            <p>
+                After analysis, you receive detailed feedback explaining why your paper was accepted or rejected, complete with 
+                specific improvement suggestions. This transparency helps you understand exactly what to enhance for successful 
+                publication.
+            </p>
+            <p>
+                Think of it as having a team of tireless expert reviewers available 24/7, ready to give you instant, unbiased 
+                feedback on your research.
+            </p>
+        </div>
+
+        <div class="leaderboard-section">
+            <h2>Top Researchers 👑</h2>
+            <div class="leaderboard-grid">
+                <div class="leaderboard-card king">
+                    <div class="crown-icon">👑</div>
+                    <div class="researcher-avatar">
+                        <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23800080'/></svg>" alt="avatar">
+                    </div>
+                    <div class="researcher-name">Dr. Sarah Chen</div>
+                    <div class="researcher-stats">
+                        <div class="stat">
+                            <span class="number">42</span>
+                            <span class="label">Accepted Papers</span>
+                        </div>
+                        <div class="badge">King of the Hill</div>
+                    </div>
+                </div>
+                
+                <div class="leaderboard-list">
+                    <div class="leaderboard-item">
+                        <div class="rank">2</div>
+                        <div class="researcher-info">
+                            <div class="name">Prof. James Wilson</div>
+                            <div class="papers">38 Accepted Papers</div>
+                        </div>
+                    </div>
+                    <div class="leaderboard-item">
+                        <div class="rank">3</div>
+                        <div class="researcher-info">
+                            <div class="name">Dr. Maria Garcia</div>
+                            <div class="papers">35 Accepted Papers</div>
+                        </div>
+                    </div>
+                    <div class="leaderboard-item">
+                        <div class="rank">4</div>
+                        <div class="researcher-info">
+                            <div class="name">Dr. Alex Kumar</div>
+                            <div class="papers">31 Accepted Papers</div>
+                        </div>
+                    </div>
+                    <div class="leaderboard-item">
+                        <div class="rank">5</div>
+                        <div class="researcher-info">
+                            <div class="name">Prof. Emma Thompson</div>
+                            <div class="papers">29 Accepted Papers</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="support-section">
+            <a href="mailto:support@cuadrada.io" class="support-link">
+                <svg class="support-icon" width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                </svg>
+                Contact Support
+            </a>
+            <a href="{{ url_for('index') }}" class="support-link">
+                <svg class="support-icon" width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/>
+                </svg>
+                Home
+            </a>
+        </div>
+
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="loading-spinner">
+                    <div class="loading-bar"></div>
+                </div>
+                <div class="loading-steps">
+                    <div class="loading-step">
+                        <div class="loading-step-icon">1</div>
+                        <div class="loading-step-text">Analyzing</div>
+                    </div>
+                    <div class="loading-step">
+                        <div class="loading-step-icon">2</div>
+                        <div class="loading-step-text">Evaluating</div>
+                    </div>
+                    <div class="loading-step">
+                        <div class="loading-step-icon">3</div>
+                        <div class="loading-step-text">Generating Feedback</div>
+                    </div>
+                </div>
+                <div class="loading-text">Analyzing paper...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const startReviewButton = document.getElementById('startReviewButton');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const previewText = document.querySelector('.preview-text');
+        let selectedFile = null;
+
+        // For any form with file uploads, not just the preview one
+        const reviewForm = document.getElementById('reviewForm');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingSteps = document.querySelectorAll('.loading-step');
+        const loadingText = document.querySelector('.loading-text');
+
+        // If the older file input setup exists, handle it
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                selectedFile = e.target.files[0];
+                if (selectedFile) {
+                    previewText.textContent = selectedFile.name;
+                    uploadPreview.classList.add('file-selected');
+                    startReviewButton.disabled = false;
+                } else {
+                    previewText.textContent = 'Drop your PDF here or click to browse';
+                    uploadPreview.classList.remove('file-selected');
+                    startReviewButton.disabled = true;
+                }
+            });
+        }
+
+        // For any form submission
+        if (reviewForm) {
+            reviewForm.addEventListener('submit', function() {
+                // Show loading overlay
+                loadingOverlay.style.display = 'block';
+                
+                // Animate the loading steps
+                setTimeout(() => {
+                    loadingSteps[0].classList.add('active');
+                    loadingText.textContent = "Analyzing paper structure...";
+                }, 1000);
+                
+                setTimeout(() => {
+                    loadingSteps[1].classList.add('active');
+                    loadingText.textContent = "Evaluating content quality...";
+                }, 6000);
+                
+                setTimeout(() => {
+                    loadingSteps[2].classList.add('active');
+                    loadingText.textContent = "Generating comprehensive feedback...";
+                }, 11000);
+            });
+        }
+    </script>
+</body>
+</html> 

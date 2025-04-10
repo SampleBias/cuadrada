@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cuadrada - Review Results</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='purple' stroke-width='10'/></svg>">
+    <style>
+        :root {
+            --primary: #800080;
+            --bg-dark: #0a0a0a;
+            --text-light: #e0e0e0;
+            --accent: #b980ff;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .logout-button {
+            background: rgba(128, 0, 128, 0.2);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .logout-button:hover {
+            background: rgba(128, 0, 128, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .review-card {
+            border: 1px solid rgba(128, 0, 128, 0.3);
+            background: rgba(128, 0, 128, 0.05);
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .review-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .review-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .review-content {
+            background: rgba(128, 0, 128, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(128, 0, 128, 0.1);
+            margin-top: 20px;
+        }
+
+        .review-summary {
+            padding: 20px;
+            border-bottom: 1px solid rgba(128, 0, 128, 0.1);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .review-full-text {
+            padding: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            background: rgba(128, 0, 128, 0.02);
+            border-top: 1px solid rgba(128, 0, 128, 0.1);
+            margin-top: 0;
+        }
+
+        .download-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(128, 0, 128, 0.1);
+            color: var(--accent);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .download-link:hover {
+            background: rgba(128, 0, 128, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .certificate-section {
+            text-align: center;
+            padding: 30px;
+            margin-top: 30px;
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            background: rgba(76, 175, 80, 0.05);
+            display: none;
+        }
+
+        .certificate-section.show {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .certificate-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .certificate-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .certificate-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 15px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .back-link {
+            display: inline-block;
+            color: var(--accent);
+            text-decoration: none;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+
+        .back-link:hover {
+            transform: translateX(-5px);
+        }
+
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(128, 0, 128, 0.3);
+            text-align: center;
+            color: rgba(224, 224, 224, 0.7);
+            font-size: 14px;
+        }
+        
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .footer a:hover {
+            color: var(--text-light);
+        }
+
+        .view-review-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            padding: 8px 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .view-review-btn:hover {
+            text-decoration: underline;
+        }
+
+        .chevron {
+            transition: transform 0.3s ease;
+        }
+
+        .chevron.rotated {
+            transform: rotate(180deg);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .review-status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+            margin-left: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .status-accepted {
+            background: rgba(0, 255, 0, 0.1);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.2);
+        }
+
+        .status-revision {
+            background: rgba(255, 166, 0, 0.1);
+            color: #FFA726;
+            border: 1px solid #FFA726;
+            box-shadow: 0 0 10px rgba(255, 166, 0, 0.2);
+        }
+
+        .status-rejected {
+            background: rgba(255, 0, 0, 0.1);
+            color: #f44336;
+            border: 1px solid #f44336;
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.2);
+        }
+
+        .status-error {
+            background: rgba(158, 158, 158, 0.1);
+            color: #9E9E9E;
+            border: 1px solid #9E9E9E;
+            box-shadow: 0 0 10px rgba(158, 158, 158, 0.2);
+        }
+
+        .error-message {
+            padding: 20px;
+            background: rgba(158, 158, 158, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(158, 158, 158, 0.2);
+            margin-top: 20px;
+            text-align: center;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .error-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 10px;
+            opacity: 0.7;
+        }
+
+        .review-card.status-accepted,
+        .review-card.status-revision,
+        .review-card.status-rejected,
+        .review-card.status-error {
+            border-left: none;
+        }
+
+        .retry-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            margin-top: 15px;
+            background: rgba(158, 158, 158, 0.1);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .retry-button:hover {
+            background: rgba(128, 0, 128, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .outcome-message {
+            text-align: center;
+            padding: 30px;
+            margin: 30px 0;
+            border-radius: 12px;
+            background: rgba(128, 0, 128, 0.05);
+            border: 1px solid rgba(128, 0, 128, 0.3);
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .outcome-message.accepted {
+            background: rgba(76, 175, 80, 0.05);
+            border-color: #4CAF50;
+        }
+
+        .outcome-message.rejected {
+            background: rgba(244, 67, 54, 0.05);
+            border-color: #f44336;
+        }
+
+        .outcome-message.revision {
+            background: rgba(255, 166, 0, 0.05);
+            border-color: #FFA726;
+        }
+
+        .outcome-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            animation: bounce 1s ease infinite;
+        }
+
+        .outcome-message h2 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .outcome-message p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .outcome-quote {
+            font-style: italic;
+            opacity: 0.8;
+            font-size: 14px;
+            padding: 15px;
+            border-left: 3px solid var(--accent);
+            margin-top: 20px;
+            text-align: left;
+            background: rgba(128, 0, 128, 0.05);
+            border-radius: 0 8px 8px 0;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .download-all-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .download-all-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(128, 0, 128, 0.2);
+        }
+
+        .download-all-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(128, 0, 128, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-container">
+            <h1>Review Results</h1>
+            <a href="{{ url_for('logout') }}" class="logout-button">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M17,17.25V14H10V10H17V6.75L22.25,12L17,17.25M13,2A2,2 0 0,1 15,4V8H13V4H4V20H13V16H15V20A2,2 0 0,1 13,22H4A2,2 0 0,1 2,20V4A2,2 0 0,1 4,2H13Z"/>
+                </svg>
+                Logout
+            </a>
+        </div>
+        
+        {% macro download_button(filename, text="Download Review", classes="download-link") %}
+            <a href="{{ url_for('download_file', filename=filename) }}" class="{{ classes }}">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                {{ text }}
+            </a>
+        {% endmacro %}
+
+        {% set all_rejected = true %}
+        {% set needs_revision = false %}
+        {% set has_error = false %}
+        {% set submission_id = None %}
+
+        {% for agent, data in results.items() %}
+            {% if agent != 'certificate_filename' and data is mapping %}
+                {% if data.decision == 'ACCEPTED' %}
+                    {% set all_rejected = false %}
+                {% endif %}
+                {% if data.decision == 'REVISION' %}
+                    {% set all_rejected = false %}
+                    {% set needs_revision = true %}
+                {% endif %}
+                {% if data.decision == 'ERROR' %}
+                    {% set has_error = true %}
+                {% endif %}
+                {% if data.filename and submission_id is none %}
+                    {% set submission_id = data.filename.split('_')[0] %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+
+        {% if submission_id %}
+        <div class="download-all-section">
+            <a href="{{ url_for('download_all_reviews', submission_id=submission_id) }}" class="download-all-button">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M20,6H4V8H20V6M20,10H4V12H20V10M4,16H20V14H4V16M22,2H2V22H22V2Z"/>
+                </svg>
+                Download All Reviews
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="outcome-message {% if all_rejected and not has_error %}rejected{% elif needs_revision and not has_error %}revision{% elif not all_rejected and not needs_revision and not has_error %}accepted{% endif %}">
+            {% if has_error %}
+                <div class="outcome-icon">🔄</div>
+                <h2>Oops! We Hit a Snag!</h2>
+                <p>Don't worry - even AI reviewers need coffee breaks sometimes! Please use the retry button above to get that review back on track.</p>
+            {% elif all_rejected %}
+                <div class="outcome-icon">💪</div>
+                <h2>Keep That Research Spirit Burning!</h2>
+                <p>Your paper didn't quite make it this time, but remember - every "no" is just a "yes" waiting to happen! 
+                   Take the feedback from our reviewers, power up your research, and come back stronger!</p>
+                <div class="outcome-quote">"Success is not final, failure is not fatal: it is the courage to continue that counts." - Winston Churchill</div>
+            {% elif needs_revision %}
+                <div class="outcome-icon">✍️</div>
+                <h2>So Close, Yet So Far!</h2>
+                <p>Your paper shows great promise - it just needs a bit more polish! Think of it like a diamond in the rough. 
+                   Take our reviewers' suggestions, give it some extra sparkle, and show us what you've got!</p>
+                <div class="outcome-quote">"The difference between ordinary and extraordinary is that little extra." - Jimmy Johnson</div>
+            {% else %}
+                <div class="outcome-icon">🌟</div>
+                <h2>Absolutely Brilliant Work!</h2>
+                <p>Pop the champagne! Your paper has impressed all our reviewers. This is the kind of research that makes the 
+                   academic world go round. Download your certificate below and take a moment to bask in the glory!</p>
+                <div class="outcome-quote">"Success is not the key to happiness. Happiness is the key to success. 
+                   If you love what you are doing, you will be successful." - Albert Schweitzer</div>
+            {% endif %}
+        </div>
+
+        {% for agent, data in results.items() %}
+            {% if agent != 'certificate_filename' and data is mapping %}
+            <div class="review-card">
+                <div class="review-header">
+                    <div class="review-title">
+                        <h2>{{ agent }}</h2>
+                        <div class="review-status status-{{ data.decision.lower() }}">
+                            {{ data.decision }}
+                        </div>
+                    </div>
+                    {% if data.filename %}
+                    <div class="review-actions">
+                        {{ download_button(data.filename) }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if data.decision == 'ERROR' %}
+                    <div class="error-message">
+                        <svg class="error-icon" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
+                        </svg>
+                        <p>{{ data.summary }}</p>
+                        <button onclick="retryReview('{{ agent }}')" class="retry-button">
+                            <svg width="16" height="16" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                            </svg>
+                            Retry Review
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="review-content">
+                        <div class="review-summary">
+                            <strong>Summary:</strong><br>
+                            {{ data.summary }}
+                        </div>
+                        <!-- Full review scrollable section -->
+                        <div class="review-full-text" id="review-{{ agent | replace(' ', '') }}">
+                            {{ data.full_review if data.full_review else data.summary }}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        {% if all_accepted and certificate_filename %}
+        <div class="certificate-section show">
+            <svg class="certificate-icon" viewBox="0 0 24 24">
+                <path fill="#4CAF50" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
+            </svg>
+            <h2>🎉 Congratulations!</h2>
+            <p>Your paper has been accepted by all reviewers. You can now download your official acceptance certificate.</p>
+            {{ download_button(certificate_filename, 
+                             "Download Acceptance Certificate", 
+                             "certificate-button") }}
+        </div>
+        {% endif %}
+
+        <a href="{{ url_for('index') }}" class="back-link">← Back to Upload</a>
+
+        <footer class="footer">
+            <p>Cuadrada is a product of Syndicate Laboratories</p>
+            <p>For support inquiries: <a href="mailto:cuadrada@pm.me">cuadrada@pm.me</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function toggleReview(reviewId) {
+            const content = document.getElementById(reviewId);
+            const button = content.previousElementSibling.querySelector('.view-review-btn');
+            const chevron = button.querySelector('.chevron');
+            
+            content.classList.toggle('show');
+            chevron.classList.toggle('rotated');
+            
+            if (content.classList.contains('show')) {
+                button.innerHTML = `
+                    <svg class="chevron rotated" width="12" height="12" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    Hide Full Review
+                `;
+            } else {
+                button.innerHTML = `
+                    <svg class="chevron" width="12" height="12" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    View Full Review
+                `;
+            }
+        }
+
+        function retryReview(reviewerName) {
+            // Show loading state
+            const reviewCard = event.target.closest('.review-card');
+            reviewCard.style.opacity = '0.5';
+            
+            // Get the submission ID from the passed parameter
+            const submissionId = "{{ submission_id }}";
+            
+            // Make request to retry endpoint
+            fetch(`/retry_review/${submissionId}/${reviewerName}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Refresh the page to show new results
+                    window.location.reload();
+                } else {
+                    alert('Error retrying review: ' + data.error);
+                    reviewCard.style.opacity = '1';
+                }
+            })
+            .catch(error => {
+                alert('Error retrying review');
+                reviewCard.style.opacity = '1';
+            });
+        }
+    </script>
+</body>
+</html> 
