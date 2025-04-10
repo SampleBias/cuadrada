@@ -63,10 +63,10 @@ auth0 = oauth.register(
     api_base_url=f'https://{auth0_domain}',
     access_token_url=f'https://{auth0_domain}/oauth/token',
     authorize_url=f'https://{auth0_domain}/authorize',
+    server_metadata_url=f'https://{auth0_domain}/.well-known/openid-configuration',
     client_kwargs={
         'scope': 'openid profile email',
         'audience': f'https://{auth0_domain}/api/v2/',
-        'verify_ssl': False,  # Only for local development
     },
 )
 
