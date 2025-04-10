@@ -11,8 +11,9 @@ REM Install or update packages from requirements.txt
 echo Installing required packages...
 pip install -r requirements.txt
 
-REM Run the application
-echo Starting the application...
+REM Run the application on port 5001
+echo Starting the application on port 5001...
+set PORT=5001
 python app.py
 
 pause

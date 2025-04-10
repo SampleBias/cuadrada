@@ -10,6 +10,7 @@ fi
 echo "Installing required packages..."
 pip install -r requirements.txt
 
-# Run the application
-echo "Starting the application..."
+# Run the application on port 5001
+echo "Starting the application on port 5001..."
+export PORT=5001
 python app.py 
