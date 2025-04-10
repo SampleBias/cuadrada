@@ -13,7 +13,7 @@ setup(
         "PyMuPDF==1.23.8",
         "openai==1.12.0",
         "anthropic==0.18.1",
-        "pymongo==4.6.1",
+        "supabase==1.0.3",
         "authlib==1.5.2",
         "requests==2.32.3",
         "gunicorn==21.2.0",

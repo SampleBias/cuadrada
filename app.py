@@ -13,7 +13,6 @@ from reportlab.lib.units import inch
 import json
 from collections import defaultdict
 import random
-from pymongo import MongoClient
 import stripe
 import zipfile
 import io
@@ -22,6 +21,13 @@ from authlib.integrations.flask_client import OAuth
 from urllib.parse import urlencode
 import requests
 import time
+from supabase_db import (
+    get_user, create_user, update_user,
+    get_subscription, create_subscription, update_subscription,
+    log_review, get_user_reviews, check_subscription_limit,
+    upload_file_to_storage, upload_bytes_to_storage,
+    download_file_from_storage, list_files_in_storage, delete_file_from_storage
+)
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -73,37 +79,6 @@ for folder in [app.config['UPLOAD_FOLDER'], app.config['RESULTS_FOLDER']]:
         app.config['UPLOAD_FOLDER'] = folder_path
     else:
         app.config['RESULTS_FOLDER'] = folder_path
-
-# MongoDB setup with retry logic
-def get_mongo_client():
-    mongodb_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
-    max_retries = 3
-    retry_delay = 2
-    
-    for attempt in range(max_retries):
-        try:
-            client = MongoClient(mongodb_uri, 
-                                connectTimeoutMS=30000, 
-                                socketTimeoutMS=None, 
-                                socketKeepAlive=True, 
-                                serverSelectionTimeoutMS=30000)
-            # Quick check that connection works
-            client.admin.command('ping')
-            return client
-        except Exception as e:
-            if attempt < max_retries - 1:
-                print(f"MongoDB connection attempt {attempt+1} failed: {str(e)}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-                retry_delay *= 2  # Exponential backoff
-            else:
-                print(f"Failed to connect to MongoDB after {max_retries} attempts: {str(e)}")
-                # Return a placeholder client - operations will fail but app will still load
-                return MongoClient(mongodb_uri)
-
-client = get_mongo_client()
-db = client.cuadrada
-users = db.users
-subscriptions = db.subscriptions
 
 # Academic paper validation constants
 ACADEMIC_INDICATORS = [
@@ -200,6 +175,7 @@ def determine_paper_decision(review_text):
 def generate_certificate(paper_title, submission_id):
     """Generate a properly formatted PDF certificate"""
     certificate_filename = f"{submission_id}_certificate.pdf"
+    # Create a temporary certificate path for generation
     certificate_path = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'], certificate_filename)
     
     try:
@@ -242,80 +218,88 @@ def generate_certificate(paper_title, submission_id):
             c.drawCentredString(width/2, height-7*inch, f"Certificate ID: {submission_id}")
             
             c.save()
+            
+            # Upload the certificate to Supabase storage
+            public_url = upload_file_to_storage(certificate_path, 'results')
+            
+            # Store the URL in the session for later retrieval
+            if public_url:
+                session['certificate_url'] = public_url
+            
             return certificate_filename
             
         except Exception as e:
             print(f"Error formatting certificate content: {str(e)}")
             raise
-            
     except Exception as e:
         print(f"Error generating certificate: {str(e)}")
-        return None
+        raise
 
 def generate_review_pdf(review_text, reviewer_name, submission_id):
     """Generate a properly formatted PDF review with Cuadrada branding"""
-    # Remove spaces from reviewer name for the filename
-    reviewer_name_filename = reviewer_name.replace(' ', '')
-    result_filename = f"{submission_id}_{reviewer_name_filename}_Analysis.pdf"
+    result_filename = f"{submission_id}_{reviewer_name.replace(' ', '_')}.pdf"
     result_path = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'], result_filename)
     
-    c = canvas.Canvas(result_path, pagesize=letter)
-    width, height = letter
-
-    # Add header with Cuadrada branding
-    c.setFillColorRGB(0.5, 0, 0.5)  # Purple color
-    c.setFont("Helvetica-Bold", 24)
-    c.drawString(72, height - 72, "Cuadrada")
+    try:
+        c = canvas.Canvas(result_path, pagesize=letter)
+        width, height = letter
+        
+        # Add header with logo and styling
+        c.setFillColorRGB(0.5, 0, 0.5)  # Purple to match Cuadrada branding
+        c.setFont("Helvetica-Bold", 20)
+        c.drawCentredString(width/2, height-1*inch, "Cuadrada Peer Review")
+        
+        # Add reviewer info
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(1*inch, height-1.5*inch, f"Reviewer: {reviewer_name}")
+        c.drawString(1*inch, height-1.75*inch, f"Date: {datetime.now().strftime('%B %d, %Y')}")
+        c.drawString(1*inch, height-2*inch, f"Submission ID: {submission_id}")
+        
+        # Add separator line
+        c.setStrokeColorRGB(0.5, 0, 0.5)
+        c.line(1*inch, height-2.25*inch, width-1*inch, height-2.25*inch)
+        
+        # Add review content with text wrapping
+        c.setFont("Helvetica", 12)
+        text_object = c.beginText()
+        text_object.setTextOrigin(1*inch, height-2.5*inch)
+        
+        # Wrap text to fit page width
+        words = review_text.split()
+        line = []
+        for word in words:
+            line.append(word)
+            line_width = c.stringWidth(' '.join(line), "Helvetica", 12)
+            if line_width > width - 144:  # 72 points margin on each side
+                text_object.textLine(' '.join(line[:-1]))
+                line = [word]
+                
+                # Check if we need a new page
+                if text_object.getY() < 72:
+                    c.drawText(text_object)
+                    c.showPage()
+                    text_object = c.beginText()
+                    text_object.setTextOrigin(72, height - 72)
+                    c.setFont("Helvetica", 12)
+        
+        if line:
+            text_object.textLine(' '.join(line))
+        
+        c.drawText(text_object)
+        c.save()
+        
+        # Upload the review to Supabase storage
+        public_url = upload_file_to_storage(result_path, 'results')
+        
+        # Store the URL in the review data
+        if public_url and reviewer_name in session.get('review_results', {}):
+            session['review_results'][reviewer_name]['file_url'] = public_url
+        
+        return result_filename
     
-    c.setFont("Helvetica", 14)
-    c.drawString(72, height - 95, "AI-Powered Peer Review")
-    
-    # Add reviewer info
-    c.setFillColorRGB(0.2, 0.2, 0.2)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(72, height - 140, reviewer_name)  # Use original reviewer name with spaces for display
-    
-    # Add date and ID
-    c.setFont("Helvetica", 10)
-    current_date = datetime.now().strftime("%B %d, %Y")
-    c.drawString(72, height - 160, f"Review Date: {current_date}")
-    c.drawString(72, height - 175, f"Submission ID: {submission_id}")
-    
-    # Add decorative line
-    c.setStrokeColorRGB(0.5, 0, 0.5)
-    c.setLineWidth(2)
-    c.line(72, height - 190, width - 72, height - 190)
-
-    # Format and add review text
-    c.setFont("Helvetica", 12)
-    text_object = c.beginText()
-    text_object.setTextOrigin(72, height - 220)
-    
-    # Word wrap the review text
-    words = review_text.split()
-    line = []
-    for word in words:
-        line.append(word)
-        line_width = c.stringWidth(' '.join(line), "Helvetica", 12)
-        if line_width > width - 144:  # 72 points margin on each side
-            text_object.textLine(' '.join(line[:-1]))
-            line = [word]
-            
-            # Check if we need a new page
-            if text_object.getY() < 72:
-                c.drawText(text_object)
-                c.showPage()
-                text_object = c.beginText()
-                text_object.setTextOrigin(72, height - 72)
-                c.setFont("Helvetica", 12)
-    
-    if line:
-        text_object.textLine(' '.join(line))
-    
-    c.drawText(text_object)
-    c.save()
-    
-    return result_filename
+    except Exception as e:
+        print(f"Error generating review PDF: {str(e)}")
+        return None
 
 def get_file_download_name(filename, paper_title=None):
     """Generate a user-friendly download filename"""
@@ -372,10 +356,6 @@ def analyze_paper_with_agent(agent, filepath, reviewer_name, submission_id):
             'full_review': error_message,
             'accepted': False
         }
-
-def check_subscription_limit():
-    """Check if user has remaining reviews in their plan"""
-    return True  # Always allow reviews, no subscription check
 
 def get_leaderboard_data():
     """Get top researchers data for the leaderboard"""
@@ -439,6 +419,31 @@ def callback():
         session['user_avatar'] = userinfo.get('picture', '')
         session['logged_in'] = True
         
+        # Check if user exists in Supabase, create if not
+        user_id = userinfo['sub']
+        user = get_user(user_id)
+        
+        if not user:
+            # Create new user
+            user_data = {
+                'user_id': user_id,
+                'email': userinfo.get('email', ''),
+                'name': userinfo.get('name', ''),
+                'created_at': datetime.now().isoformat()
+            }
+            create_user(user_data)
+            
+            # Create default subscription
+            subscription_data = {
+                'user_id': user_id,
+                'plan_type': 'free',
+                'status': 'active',
+                'max_reviews': 5,  # Default limit for free tier
+                'current_period_start': datetime.now().isoformat(),
+                'current_period_end': (datetime.now() + timedelta(days=30)).isoformat()
+            }
+            create_subscription(subscription_data)
+        
         return redirect(url_for('index'))
         
     except Exception as e:
@@ -463,7 +468,10 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if not check_subscription_limit():
+    # Get user ID from session if available
+    user_id = session.get('profile', {}).get('user_id', None)
+    
+    if not check_subscription_limit(user_id):
         return jsonify({
             'error': 'Review limit reached for your current plan'
         }), 403
@@ -478,8 +486,17 @@ def upload_file():
     try:
         submission_id = generate_unique_filename()
         filename = secure_filename(file.filename)
+        
+        # First save the file locally (this will be temporary)
         upload_path = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'], f"{submission_id}_{filename}")
         file.save(upload_path)
+        
+        # Upload to Supabase
+        file_url = upload_file_to_storage(upload_path, 'uploads')
+        
+        # Store the file URL in the session
+        if file_url:
+            session['upload_file_url'] = file_url
         
         # Store the paper title in session for later use in download
         paper_title = request.form.get('paper_title', '')
@@ -526,6 +543,18 @@ def upload_file():
             except Exception as e:
                 print(f"Error generating certificate: {str(e)}")
                 session['certificate_filename'] = None
+        
+        # Log the review in the database
+        if user_id:
+            review_data = {
+                'user_id': user_id,
+                'submission_id': submission_id,
+                'paper_title': paper_title or filename,
+                'decision': 'ACCEPTED' if all_accepted else 'REJECTED/REVISION',
+                'created_at': datetime.now().isoformat(),
+                'file_url': session.get('upload_file_url', '')
+            }
+            log_review(review_data)
             
         return render_template('results.html', 
                               results=results, 
@@ -541,23 +570,52 @@ def upload_file():
 @app.route('/download/<filename>')
 def download_file(filename):
     """Handle file downloads with proper error checking"""
-    # Get the results folder path
-    results_dir = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'])
-    
-    # Find the file using helper function
-    file_path = find_file_with_secure_path(results_dir, filename)
-    if not file_path:
+    if not filename or '..' in filename:  # Prevent directory traversal
         return redirect(url_for('index'))
-    
-    # Extract paper title from session if available
-    paper_title = session.get('paper_title', 'Report')
-    
-    # Create a formatted filename
-    download_name = get_file_download_name(filename, paper_title)
-    
+        
     try:
+        # Get the results folder path for temporary storage
+        results_dir = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'])
+        temp_path = os.path.join(results_dir, filename)
+        
+        # Get file URL from session based on filename
+        file_url = None
+        
+        # Check if it's a review file
+        submission_id = session.get('submission_id')
+        if submission_id and filename.startswith(submission_id):
+            for reviewer, result in session.get('review_results', {}).items():
+                if f"{submission_id}_{reviewer.replace(' ', '_')}.pdf" == filename:
+                    file_url = result.get('file_url')
+                    break
+        
+        # Check if it's a certificate
+        if not file_url and filename.endswith('_certificate.pdf'):
+            file_url = session.get('certificate_url')
+        
+        if not file_url:
+            print(f"No URL found for file: {filename}")
+            return redirect(url_for('index'))
+            
+        # Download the file to a temporary location
+        response = requests.get(file_url)
+        if response.status_code != 200:
+            print(f"Error downloading file from URL: {file_url}")
+            return redirect(url_for('index'))
+            
+        # Save to temporary location
+        with open(temp_path, 'wb') as f:
+            f.write(response.content)
+        
+        # Extract paper title from session if available
+        paper_title = session.get('paper_title', 'Report')
+        
+        # Create a formatted filename
+        download_name = get_file_download_name(filename, paper_title)
+        
+        # Send the file
         return send_file(
-            file_path,
+            temp_path,
             as_attachment=True,
             download_name=download_name
         )
@@ -567,42 +625,46 @@ def download_file(filename):
 
 @app.route('/download_certificate')
 def download_certificate():
+    """Download the certificate for the current submission"""
+    submission_id = session.get('submission_id')
+    if not submission_id:
+        return redirect(url_for('index'))
+        
     try:
-        # Get the most recent certificate file from the results folder
+        # Get the results folder path for temporary storage
         results_dir = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'])
         
-        # If we have a certificate filename in session, use that
-        if 'certificate_filename' in session and session['certificate_filename']:
-            certificate_path = os.path.join(results_dir, session['certificate_filename'])
-            if os.path.exists(certificate_path):
-                paper_title = session.get('paper_title', 'Research_Paper')
-                download_name = get_file_download_name(session['certificate_filename'], paper_title)
-                return send_file(
-                    certificate_path,
-                    as_attachment=True,
-                    download_name=download_name
-                )
+        # Use certificate URL from session if available
+        certificate_url = session.get('certificate_url')
+        certificate_filename = session.get('certificate_filename')
         
-        # Fallback: get the most recent certificate
-        certificate_files = [f for f in os.listdir(results_dir) if f.endswith('_certificate.pdf')]
-        if not certificate_files:
-            return redirect(url_for('index'))
+        if certificate_url and certificate_filename:
+            # Download from Supabase
+            temp_path = os.path.join(results_dir, certificate_filename)
             
-        latest_certificate = sorted(certificate_files)[-1]
-        certificate_path = os.path.join(results_dir, latest_certificate)
-        
-        if os.path.exists(certificate_path):
+            # Download the file to a temporary location
+            response = requests.get(certificate_url)
+            if response.status_code != 200:
+                return redirect(url_for('index'))
+                
+            # Save to temporary location
+            with open(temp_path, 'wb') as f:
+                f.write(response.content)
+                
+            # Extract paper title from session if available
             paper_title = session.get('paper_title', 'Research_Paper')
-            download_name = get_file_download_name(latest_certificate, paper_title)
             
+            # Create a formatted filename
+            download_name = get_file_download_name(certificate_filename, paper_title)
+            
+            # Send the file
             return send_file(
-                certificate_path,
+                temp_path,
                 as_attachment=True,
                 download_name=download_name
             )
         else:
             return redirect(url_for('index'))
-            
     except Exception as e:
         print(f"Error downloading certificate: {str(e)}")
         return redirect(url_for('index'))
@@ -610,14 +672,33 @@ def download_certificate():
 @app.route('/retry_review/<submission_id>/<reviewer_name>', methods=['POST'])
 def retry_review(submission_id, reviewer_name):
     try:
-        # Find the original file
-        uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'])
-        files = [f for f in os.listdir(uploads_dir) 
-                if f.startswith(submission_id)]
-        if not files:
-            return jsonify({'success': False, 'error': 'Original file not found'})
+        # Get the upload file URL from session
+        upload_file_url = session.get('upload_file_url')
+        
+        if not upload_file_url:
+            # Fallback to finding the file on disk
+            uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'])
+            files = [f for f in os.listdir(uploads_dir) 
+                    if f.startswith(submission_id)]
             
-        upload_path = os.path.join(uploads_dir, files[0])
+            if not files:
+                return jsonify({'success': False, 'error': 'Original file not found'})
+                
+            upload_path = os.path.join(uploads_dir, files[0])
+        else:
+            # Download from Supabase to a temporary location
+            uploads_dir = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'])
+            temp_file = f"{submission_id}_temp.pdf"
+            upload_path = os.path.join(uploads_dir, temp_file)
+            
+            # Download the file to a temporary location
+            response = requests.get(upload_file_url)
+            if response.status_code != 200:
+                return jsonify({'success': False, 'error': 'Failed to download original file'})
+                
+            # Save to temporary location
+            with open(upload_path, 'wb') as f:
+                f.write(response.content)
         
         # Create new agent and analyze
         agent = ClaudeAgent()
@@ -722,21 +803,50 @@ def download_all_reviews(submission_id):
         return redirect(url_for('index'))
         
     try:
-        # Get all files related to this submission
-        results_dir = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'])
-        all_files = [f for f in os.listdir(results_dir) 
-                    if f.startswith(submission_id) and f.endswith('.pdf')]
-        
-        if not all_files:
-            print(f"No files found for submission: {submission_id}")
-            return redirect(url_for('index'))
-            
         # Create a zip file in memory
         memory_file = io.BytesIO()
+        
         with zipfile.ZipFile(memory_file, 'w') as zf:
-            for file in all_files:
-                file_path = os.path.join(results_dir, file)
-                zf.write(file_path, file)
+            # Get the review results from the session
+            review_results = session.get('review_results', {})
+            
+            # Get the certificate URL if available
+            certificate_url = session.get('certificate_url')
+            certificate_filename = session.get('certificate_filename')
+            
+            # Temporary folder for downloads
+            temp_dir = os.path.join(os.path.dirname(__file__), app.config['RESULTS_FOLDER'])
+            
+            # Download and add each review file to the zip
+            for reviewer, result in review_results.items():
+                file_url = result.get('file_url')
+                if file_url:
+                    filename = f"{submission_id}_{reviewer.replace(' ', '_')}.pdf"
+                    temp_path = os.path.join(temp_dir, filename)
+                    
+                    # Download the file to a temporary location
+                    response = requests.get(file_url)
+                    if response.status_code == 200:
+                        # Save to temporary location
+                        with open(temp_path, 'wb') as f:
+                            f.write(response.content)
+                        
+                        # Add to zip
+                        zf.write(temp_path, filename)
+            
+            # Add certificate if available
+            if certificate_url and certificate_filename:
+                temp_path = os.path.join(temp_dir, certificate_filename)
+                
+                # Download the file to a temporary location
+                response = requests.get(certificate_url)
+                if response.status_code == 200:
+                    # Save to temporary location
+                    with open(temp_path, 'wb') as f:
+                        f.write(response.content)
+                    
+                    # Add to zip
+                    zf.write(temp_path, certificate_filename)
         
         # Get the paper title from session
         paper_title = session.get('paper_title', 'Research_Paper')
@@ -755,6 +865,7 @@ def download_all_reviews(submission_id):
         
     except Exception as e:
         print(f"Error creating review bundle: {str(e)}")
+        traceback.print_exc()
         return redirect(url_for('index'))
 
 @app.route('/logout')
