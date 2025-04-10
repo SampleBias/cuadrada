@@ -42,7 +42,8 @@ set /p CLAUDE_API_KEY=CLAUDE_API_KEY:
 set /p AUTH0_DOMAIN=AUTH0_DOMAIN: 
 set /p AUTH0_CLIENT_ID=AUTH0_CLIENT_ID: 
 set /p AUTH0_CLIENT_SECRET=AUTH0_CLIENT_SECRET: 
-set /p MONGODB_URI=MONGODB_URI: 
+set /p SUPABASE_URL=SUPABASE_URL: 
+set /p SUPABASE_KEY=SUPABASE_KEY: 
 set /p STRIPE_SECRET_KEY=STRIPE_SECRET_KEY: 
 set /p STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET: 
 
@@ -53,7 +54,8 @@ heroku config:set AUTH0_CLIENT_ID="%AUTH0_CLIENT_ID%" --app %APP_NAME%
 heroku config:set AUTH0_CLIENT_SECRET="%AUTH0_CLIENT_SECRET%" --app %APP_NAME%
 heroku config:set AUTH0_CALLBACK_URL="https://%APP_NAME%.herokuapp.com/callback" --app %APP_NAME%
 heroku config:set AUTH0_BASE_URL="https://%APP_NAME%.herokuapp.com" --app %APP_NAME%
-heroku config:set MONGODB_URI="%MONGODB_URI%" --app %APP_NAME%
+heroku config:set SUPABASE_URL="%SUPABASE_URL%" --app %APP_NAME%
+heroku config:set SUPABASE_KEY="%SUPABASE_KEY%" --app %APP_NAME%
 heroku config:set STRIPE_SECRET_KEY="%STRIPE_SECRET_KEY%" --app %APP_NAME%
 heroku config:set STRIPE_WEBHOOK_SECRET="%STRIPE_WEBHOOK_SECRET%" --app %APP_NAME%
 
