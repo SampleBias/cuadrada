@@ -332,3 +332,43 @@ def check_subscription_limit(user_id):
     except Exception as e:
         print(f"Error checking subscription limit: {str(e)}")
         return True  # Default to allowing reviews if there's an error
+
+def fix_upload_file_to_storage(file_path, bucket_name='uploads'):
+    """
+    Fixed version of upload_file_to_storage that doesn't use .get() on Response
+    """
+    supabase = get_supabase_client()
+    if not supabase:
+        return None
+    
+    try:
+        # Generate a unique file name to avoid collisions
+        file_name = os.path.basename(file_path)
+        unique_name = f"{uuid.uuid4().hex}_{file_name}"
+        
+        # Guess the MIME type based on file extension
+        content_type, _ = mimetypes.guess_type(file_path)
+        if not content_type:
+            content_type = 'application/octet-stream'  # Default MIME type
+        
+        # Read the file
+        with open(file_path, 'rb') as f:
+            file_content = f.read()
+        
+        # Upload to Supabase Storage - just try the upload and handle errors with try/except
+        try:
+            supabase.storage.from_(bucket_name).upload(
+                unique_name,
+                file_content,
+                {"content-type": content_type}
+            )
+        except Exception as upload_error:
+            print(f"Error during storage upload: {str(upload_error)}")
+            return None
+        
+        # Generate public URL
+        public_url = supabase.storage.from_(bucket_name).get_public_url(unique_name)
+        return public_url
+    except Exception as e:
+        print(f"Error uploading file to storage: {str(e)}")
+        return None

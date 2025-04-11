@@ -26,7 +26,8 @@ from supabase_db import (
     get_subscription, create_subscription, update_subscription,
     log_review, get_user_reviews, check_subscription_limit,
     upload_file_to_storage, upload_bytes_to_storage,
-    download_file_from_storage, list_files_in_storage, delete_file_from_storage
+    download_file_from_storage, list_files_in_storage, delete_file_from_storage,
+    fix_upload_file_to_storage
 )
 
 load_dotenv()  # Load environment variables from .env file
@@ -497,7 +498,8 @@ def index():
     return render_template('index.html', leaderboard=leaderboard)
 
 @app.route('/upload', methods=['POST'])
-def upload_file():
+def optimized_upload_file():
+    """Optimized upload handler that processes one reviewer at a time"""
     # Get user ID from session if available
     user_id = session.get('profile', {}).get('user_id', None)
     
@@ -521,8 +523,8 @@ def upload_file():
         upload_path = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'], f"{submission_id}_{filename}")
         file.save(upload_path)
         
-        # Upload to Supabase
-        file_url = upload_file_to_storage(upload_path, 'uploads')
+        # Upload to Supabase - using the fixed function
+        file_url = fix_upload_file_to_storage(upload_path, 'uploads')
         
         # Store the file URL in the session
         if file_url:
@@ -536,43 +538,27 @@ def upload_file():
             # Use the filename as a fallback
             session['paper_title'] = os.path.splitext(filename)[0]
         
-        # Create agents
-        agents = {
-            'Reviewer 1': ClaudeAgent(),
-            'Reviewer 2': ClaudeAgent(),
-            'Reviewer 3': ClaudeAgent()
-        }
+        # Process only one reviewer for quick response
+        # This avoids the timeout by processing quickly
+        agent = ClaudeAgent()
+        reviewer_name = "Reviewer 1"
         
-        # Analyze with each agent
-        results = {}
-        all_accepted = True
+        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
         
-        for agent_name, agent in agents.items():
-            result = analyze_paper_with_agent(agent, upload_path, agent_name, submission_id)
-            results[agent_name] = result
-            
-            # Update all_accepted flag
-            if not result.get('accepted', False):
-                all_accepted = False
-        
-        # Store minimal data in session to avoid size limit
-        # Remove the 'accepted' key from each result since we have all_accepted
-        for key in results:
-            if 'accepted' in results[key]:
-                del results[key]['accepted']
-                
-        session['review_results'] = results
+        # Store data to process other reviewers later
+        session['pending_file_path'] = upload_path
         session['submission_id'] = submission_id
-        session['all_accepted'] = all_accepted
         
-        # Generate certificate if all reviewers accepted
-        if all_accepted:
-            try:
-                certificate_filename = generate_certificate(paper_title or filename, submission_id)
-                session['certificate_filename'] = certificate_filename
-            except Exception as e:
-                print(f"Error generating certificate: {str(e)}")
-                session['certificate_filename'] = None
+        # Initialize results dictionary with the first reviewer's result
+        results = {reviewer_name: result}
+        all_accepted = result.get('accepted', False)
+        
+        # Remove the 'accepted' key to save session space
+        if 'accepted' in results[reviewer_name]:
+            del results[reviewer_name]['accepted']
+            
+        session['review_results'] = results
+        session['all_accepted'] = all_accepted
         
         # Log the review in the database
         if user_id:
@@ -580,7 +566,7 @@ def upload_file():
                 'user_id': user_id,
                 'submission_id': submission_id,
                 'paper_title': paper_title or filename,
-                'decision': 'ACCEPTED' if all_accepted else 'REJECTED/REVISION',
+                'decision': 'PROCESSING',  # Will be updated later
                 'created_at': datetime.now().isoformat(),
                 'file_url': session.get('upload_file_url', '')
             }
@@ -590,7 +576,8 @@ def upload_file():
                               results=results, 
                               all_accepted=all_accepted, 
                               submission_id=submission_id,
-                              certificate_filename=session.get('certificate_filename'))
+                              certificate_filename=None,
+                              processing=True)  # Flag to show processing status
             
     except Exception as e:
         print(f"Error processing file: {str(e)}")
