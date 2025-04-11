@@ -628,6 +628,99 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
         }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            margin: 15% auto;
+            padding: 30px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 0 25px rgba(185, 128, 255, 0.3);
+            color: var(--text-light);
+        }
+
+        .modal h2 {
+            color: var(--accent);
+            text-align: center;
+            margin-top: 0;
+        }
+
+        .modal-body {
+            text-align: center;
+        }
+
+        .modal-body p {
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .close-button {
+            color: var(--text-light);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            color: var(--accent);
+        }
+
+        .donation-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .donate-button {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .donate-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
+        }
+
+        .maybe-later {
+            background: transparent;
+            color: var(--text-light);
+            border: 1px solid var(--accent);
+            padding: 12px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .maybe-later:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -926,6 +1019,58 @@
                 }, 11000);
             });
         }
+
+        // Show donation modal once per session
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('donationModal');
+            const closeButton = document.querySelector('.close-button');
+            const maybeLaterButton = document.querySelector('.maybe-later');
+            
+            // Check if we've shown the modal in this session
+            const hasSeenDonation = sessionStorage.getItem('hasSeenDonation');
+            
+            if (!hasSeenDonation) {
+                // Show the modal after a slight delay
+                setTimeout(function() {
+                    modal.style.display = 'block';
+                    // Mark as shown for this session
+                    sessionStorage.setItem('hasSeenDonation', 'true');
+                }, 2000);
+            }
+            
+            // Close the modal when clicking the X button
+            closeButton.onclick = function() {
+                modal.style.display = 'none';
+            }
+            
+            // Close the modal when clicking "Maybe Later"
+            maybeLaterButton.onclick = function() {
+                modal.style.display = 'none';
+            }
+            
+            // Close when clicking outside the modal
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        });
     </script>
+    
+    <!-- Donation Modal -->
+    <div id="donationModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Support Cuadrada</h2>
+            <div class="modal-body">
+                <p>Help us keep Cuadrada free and accessible for all researchers!</p>
+                <p>Your small contribution of just $3.99 helps maintain our AI peer review system for scholars worldwide.</p>
+                <div class="donation-buttons">
+                    <a href="https://buy.stripe.com/00g5mN6b6dNo63edQZ" class="donate-button" target="_blank">Donate $3.99</a>
+                    <button class="maybe-later">Maybe Later</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 
