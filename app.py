@@ -500,7 +500,7 @@ def index():
     return render_template('index.html', leaderboard=leaderboard)
 
 @app.route('/upload', methods=['POST'])
-def optimized_upload_file():
+def upload_file():
     """Optimized upload handler that processes one reviewer at a time"""
     # Get user ID from session if available
     user_id = session.get('profile', {}).get('user_id', None)
