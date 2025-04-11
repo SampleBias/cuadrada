@@ -473,11 +473,13 @@ def callback():
         print(error_message)
         traceback.print_exc()
         
-        # Clear any partial session data
-        session.clear()
-        
         # Store error in session for display
         session['auth_error'] = error_message
+        
+        # Clear any other session data, preserving the error message
+        for key in list(session.keys()):
+            if key != 'auth_error':
+                session.pop(key, None)
         
         return redirect(url_for('auth_error'))
 
