@@ -111,19 +111,9 @@ class BaseReviewer(ABC):
                     print(f"No more models available. Retrying {self.current_model} after backoff. Attempt {retry_count}/{max_retries}")
                     time.sleep(backoff_time)
                     backoff_time *= 2  # Exponential backoff
-                    
-            except Exception as e:
-                print(f"Error generating review with {self.current_model}: {str(e)}")
-                retry_count += 1
-                if retry_count < max_retries:
-                    print(f"Retrying... Attempt {retry_count}/{max_retries}")
-                    time.sleep(backoff_time)
-                    backoff_time *= 2  # Exponential backoff
-                else:
-                    raise  # Re-raise the error after all retries fail
         
-        # If we get here, all retries failed
-        raise Exception(f"Failed to generate review after {max_retries} attempts with all available models")
+        # If we get here, all retries have been exhausted
+        raise Exception("Review limit reached for your current plan. The system attempted to use multiple models but was unable to complete your request due to rate limiting.")
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF file"""

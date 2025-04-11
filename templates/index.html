@@ -568,6 +568,66 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
         }
+
+        /* Error overlay styling */
+        .error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 10, 0.95);
+            z-index: 1001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+        }
+        
+        .error-content {
+            background: rgba(20, 20, 20, 0.95);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 80%;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(128, 0, 128, 0.3);
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .error-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 15px;
+        }
+        
+        .error-message {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+        
+        .error-close-button {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        .error-close-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(128, 0, 128, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -738,6 +798,18 @@
                 <div class="loading-text">Analyzing paper...</div>
             </div>
         </div>
+
+        <!-- Error message overlay -->
+        <div class="error-overlay" id="errorOverlay" style="display: none;">
+            <div class="error-content">
+                <div class="error-icon">⚠️</div>
+                <div class="error-title">Review Limit Reached</div>
+                <div class="error-message" id="errorMessage">
+                    You've reached the maximum number of reviews allowed for your current plan.
+                </div>
+                <button class="error-close-button" id="errorCloseButton">Close</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -752,6 +824,11 @@
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingSteps = document.querySelectorAll('.loading-step');
         const loadingText = document.querySelector('.loading-text');
+        
+        // Error handling elements
+        const errorOverlay = document.getElementById('errorOverlay');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorCloseButton = document.getElementById('errorCloseButton');
 
         // If the older file input setup exists, handle it
         if (fileInput) {
@@ -769,13 +846,70 @@
             });
         }
 
+        // Error close button handler
+        if (errorCloseButton) {
+            errorCloseButton.addEventListener('click', function() {
+                errorOverlay.style.display = 'none';
+            });
+        }
+
         // For any form submission
         if (reviewForm) {
-            reviewForm.addEventListener('submit', function() {
+            reviewForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                
                 // Show loading overlay
                 loadingOverlay.style.display = 'block';
                 
-                // Animate the loading steps
+                // Create FormData object
+                const formData = new FormData(this);
+                
+                // Fetch API to submit the form
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    // Credentials included for session cookies
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        // If it's a 403 response, might be a rate limit
+                        if (response.status === 403) {
+                            // Parse the JSON error response
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Rate limit exceeded');
+                            });
+                        }
+                        throw new Error('Network response was not ok');
+                    }
+                    // If it's HTML response (success case), just use the response
+                    return response.text();
+                })
+                .then(html => {
+                    // Success - replace page content with the response
+                    document.open();
+                    document.write(html);
+                    document.close();
+                })
+                .catch(error => {
+                    // Hide loading overlay
+                    loadingOverlay.style.display = 'none';
+                    
+                    // Show error message
+                    if (error.message.includes('Review limit reached')) {
+                        errorMessage.textContent = 'You have reached the review limit for your current plan. Please upgrade your subscription to continue using our service.';
+                    } else if (error.message.includes('rate limit') || error.message.includes('Rate limit')) {
+                        errorMessage.textContent = 'Our AI review system is currently experiencing high demand. Please wait a minute and try again.';
+                    } else {
+                        errorMessage.textContent = 'An error occurred while processing your request. Please try again later.';
+                    }
+                    
+                    // Show error overlay
+                    errorOverlay.style.display = 'flex';
+                    console.error('Error submitting form:', error);
+                });
+                
+                // Animate the loading steps (still needed for visual feedback during fetch)
                 setTimeout(() => {
                     loadingSteps[0].classList.add('active');
                     loadingText.textContent = "Analyzing paper structure...";
