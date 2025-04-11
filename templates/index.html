@@ -30,6 +30,14 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            flex-wrap: nowrap;
+        }
+        
+        .header-container h1 {
+            margin: 0;
+            flex-grow: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .user-profile {
@@ -77,6 +85,13 @@
             color: var(--text-light);
             font-weight: 300;
             letter-spacing: -0.5px;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+
+        h1 svg {
+            flex-shrink: 0;
         }
 
         .login-section {
@@ -729,7 +744,7 @@
             <h1>
                 <svg 
                     class="square-logo"
-                    style="width: 60px; height: 60px; margin-right: 10px; vertical-align: middle;" 
+                    style="width: 60px; height: 60px; margin-right: 10px; vertical-align: middle; flex-shrink: 0;" 
                     viewBox="0 0 100 100"
                 >
                     <rect 
@@ -752,7 +767,7 @@
                         </linearGradient>
                     </defs>
                 </svg>
-                Cuadrada - Autonomous AI Peer Review
+                <span>Cuadrada - Autonomous AI Peer Review</span>
             </h1>
             {% if session.get('logged_in') %}
             <div class="user-profile">
