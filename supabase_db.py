@@ -63,15 +63,15 @@ def upload_file_to_storage(file_path, bucket_name='uploads'):
         with open(file_path, 'rb') as f:
             file_content = f.read()
         
-        # Upload to Supabase Storage
-        response = supabase.storage.from_(bucket_name).upload(
-            unique_name,
-            file_content,
-            {"content-type": content_type}
-        )
-        
-        if response.get('error'):
-            print(f"Error uploading file: {response['error']}")
+        # Upload to Supabase Storage - just try the upload and handle errors with try/except
+        try:
+            supabase.storage.from_(bucket_name).upload(
+                unique_name,
+                file_content,
+                {"content-type": content_type}
+            )
+        except Exception as upload_error:
+            print(f"Error during storage upload: {str(upload_error)}")
             return None
         
         # Generate public URL
@@ -98,15 +98,15 @@ def upload_bytes_to_storage(file_bytes, file_name, content_type, bucket_name='re
         # Generate a unique file name to avoid collisions
         unique_name = f"{uuid.uuid4().hex}_{file_name}"
         
-        # Upload bytes to Supabase Storage
-        response = supabase.storage.from_(bucket_name).upload(
-            unique_name,
-            file_bytes,
-            {"content-type": content_type}
-        )
-        
-        if response.get('error'):
-            print(f"Error uploading bytes: {response['error']}")
+        # Upload bytes to Supabase Storage - just try the upload and handle errors with try/except
+        try:
+            supabase.storage.from_(bucket_name).upload(
+                unique_name,
+                file_bytes,
+                {"content-type": content_type}
+            )
+        except Exception as upload_error:
+            print(f"Error during storage upload: {str(upload_error)}")
             return None
         
         # Generate public URL
@@ -154,12 +154,7 @@ def list_files_in_storage(bucket_name='uploads', path=None):
     try:
         # List files in the bucket, optionally filtering by path
         response = supabase.storage.from_(bucket_name).list(path or '')
-        
-        if response.get('error'):
-            print(f"Error listing files: {response['error']}")
-            return []
-        
-        return response
+        return response if response else []
     except Exception as e:
         print(f"Error listing files in storage: {str(e)}")
         return []
@@ -177,12 +172,7 @@ def delete_file_from_storage(file_name, bucket_name='uploads'):
     
     try:
         # Delete from Supabase Storage
-        response = supabase.storage.from_(bucket_name).remove([file_name])
-        
-        if response.get('error'):
-            print(f"Error deleting file: {response['error']}")
-            return False
-        
+        supabase.storage.from_(bucket_name).remove([file_name])
         return True
     except Exception as e:
         print(f"Error deleting file from storage: {str(e)}")
