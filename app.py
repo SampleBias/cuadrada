@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, url_for, redirect, jsonify, session, flash
+from flask import Flask, render_template, request, send_file, url_for, redirect, jsonify, session, flash, Response
 import os
 from werkzeug.utils import secure_filename
 import uuid
@@ -118,7 +118,9 @@ def generate_unique_filename():
 
 def format_error_message(error_str):
     """Convert technical error messages to user-friendly ones"""
-    if 'rate_limit_error' in error_str.lower() or 'rate limit' in error_str.lower():
+    if 'Review limit reached for your current plan' in error_str:
+        return "You have reached the review limit for your current plan. Please upgrade your subscription to continue using our service."
+    elif 'rate_limit_error' in error_str.lower() or 'rate limit' in error_str.lower():
         return "Our review system is currently busy. The system attempted to use alternative models but was still rate limited. Please wait 60 seconds and try again."
     elif 'authentication_error' in error_str.lower() or 'invalid x-api-key' in error_str.lower():
         return "There was an issue with our review system authentication. Please contact support."
@@ -524,7 +526,7 @@ def upload_file():
     
     if not check_subscription_limit(user_id):
         return jsonify({
-            'error': 'Review limit reached for your current plan'
+            'error': 'Review limit reached for your current plan. Please upgrade your subscription to continue.'
         }), 403
     
     if 'paper' not in request.files:
@@ -937,7 +939,7 @@ def logout():
     
     # Redirect to Auth0 logout endpoint
     params = {
-        'returnTo': url_for('thank_you', _external=True),
+        'returnTo': url_for('index', _external=True),
         'client_id': auth0_client_id
     }
     return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
@@ -946,6 +948,13 @@ def logout():
 def thank_you():
     """Show the thank you page after logout"""
     return render_template('logout.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve the favicon"""
+    # Since we're using an SVG favicon, return the SVG content directly
+    svg_content = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='purple' stroke-width='10'/></svg>"""
+    return Response(svg_content, mimetype='image/svg+xml')
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -958,7 +967,13 @@ def handle_exception(e):
     traceback.print_exc()
     
     # For API endpoints, return JSON
-    if request.path.startswith('/api/'):
+    if request.path.startswith('/api/') or request.content_type == 'application/json':
+        # Check for rate limiting errors
+        if 'rate limit' in str(e).lower() or 'Review limit reached' in str(e):
+            return jsonify({
+                'error': format_error_message(str(e))
+            }), 403
+        
         return jsonify({
             'error': 'An unexpected error occurred',
             'error_id': str(error_id),
