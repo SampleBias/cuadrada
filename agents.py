@@ -3,6 +3,7 @@ import os
 import fitz  # PyMuPDF
 from dotenv import load_dotenv
 import anthropic
+import time
 
 load_dotenv()
 
@@ -55,9 +56,19 @@ class BaseReviewer(ABC):
     "the reviewer notes", "the reviewer finds", "in the reviewer's assessment", etc.
     """
 
-    def __init__(self):
-        self.setup_credentials()
+    # Available Claude models ordered by capability (highest to lowest)
+    CLAUDE_MODELS = [
+        "claude-3-opus-20240229",  # Most capable but more expensive
+        "claude-3-sonnet-20240229", # Default model
+        "claude-3-haiku-20240307",  # Faster but less capable
+        "claude-2.1",               # Fallback to older model
+    ]
 
+    def __init__(self, model_index=1):  # Default to sonnet (index 1)
+        self.setup_credentials()
+        self.model_index = model_index
+        self.current_model = self.CLAUDE_MODELS[model_index]
+        
     def setup_credentials(self):
         """Setup Claude API credentials"""
         api_key = os.getenv('CLAUDE_API_KEY')
@@ -69,18 +80,50 @@ class BaseReviewer(ABC):
         self.client = anthropic.Anthropic(api_key=api_key)
 
     def generate_review(self, paper_text: str) -> str:
-        """Generate review using Claude"""
-        try:
-            response = self.client.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=4000,
-                system=self.REVIEW_PROMPT,
-                messages=[{"role": "user", "content": paper_text}]
-            )
-            return response.content[0].text
-        except Exception as e:
-            print(f"Error generating review: {str(e)}")
-            raise  # Re-raise the error to be handled by the app
+        """Generate review using Claude with fallback to less capable models on rate limit"""
+        max_retries = 3
+        retry_count = 0
+        backoff_time = 2  # Initial backoff time in seconds
+        
+        while retry_count < max_retries:
+            try:
+                response = self.client.messages.create(
+                    model=self.current_model,
+                    max_tokens=4000,
+                    system=self.REVIEW_PROMPT,
+                    messages=[{"role": "user", "content": paper_text}]
+                )
+                return response.content[0].text
+                
+            except anthropic.RateLimitError as e:
+                print(f"Rate limit error with model {self.current_model}: {str(e)}")
+                
+                # Try to use a less capable model
+                if self.model_index < len(self.CLAUDE_MODELS) - 1:
+                    self.model_index += 1
+                    self.current_model = self.CLAUDE_MODELS[self.model_index]
+                    print(f"Downgrading to alternative model: {self.current_model}")
+                    # Reset retry count since we're trying a new model
+                    retry_count = 0
+                else:
+                    # No more models to try, wait and retry the last model
+                    retry_count += 1
+                    print(f"No more models available. Retrying {self.current_model} after backoff. Attempt {retry_count}/{max_retries}")
+                    time.sleep(backoff_time)
+                    backoff_time *= 2  # Exponential backoff
+                    
+            except Exception as e:
+                print(f"Error generating review with {self.current_model}: {str(e)}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(f"Retrying... Attempt {retry_count}/{max_retries}")
+                    time.sleep(backoff_time)
+                    backoff_time *= 2  # Exponential backoff
+                else:
+                    raise  # Re-raise the error after all retries fail
+        
+        # If we get here, all retries failed
+        raise Exception(f"Failed to generate review after {max_retries} attempts with all available models")
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF file"""
@@ -97,5 +140,7 @@ class BaseReviewer(ABC):
         return review
 
 class ClaudeAgent(BaseReviewer):
-    """Claude-based reviewer - uses base implementation"""
-    pass 
+    """Claude-based reviewer with built-in fallback to less capable models"""
+    def __init__(self, model_index=1):  # Default to sonnet (index 1)
+        super().__init__(model_index)
+        print(f"Initialized ClaudeAgent with model: {self.current_model}") 
