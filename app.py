@@ -934,15 +934,38 @@ def download_all_reviews(submission_id):
 @app.route('/logout')
 def logout():
     """Log out from both the application and Auth0"""
-    # Clear session data
-    session.clear()
-    
-    # Redirect to Auth0 logout endpoint
-    params = {
-        'returnTo': url_for('index', _external=True),
-        'client_id': auth0_client_id
-    }
-    return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
+    try:
+        # Clear session data first
+        session.clear()
+        
+        # Get the base URL from environment 
+        base_url = os.getenv('AUTH0_BASE_URL')
+        if not base_url:
+            if 'DYNO' in os.environ:  # Heroku
+                base_url = 'https://cuadrada-peer-review-e519e76bd103.herokuapp.com'
+            else:
+                base_url = request.url_root.rstrip('/')
+            
+        # Define Auth0 logout URL
+        auth0_logout_url = f"https://{auth0_domain}/v2/logout"
+        
+        # Parameters for logout
+        params = {
+            'client_id': auth0_client_id,
+            'returnTo': f"{base_url}/"
+        }
+        
+        # Prepare and return the logout redirect
+        logout_url = f"{auth0_logout_url}?{urlencode(params)}"
+        return redirect(logout_url)
+    except Exception as e:
+        # Log the error
+        print(f"Auth0 logout error: {str(e)}")
+        traceback.print_exc()
+        
+        # Emergency fallback - just clear session and go to index
+        session.clear()
+        return redirect(url_for('index'))
 
 @app.route('/thank-you')
 def thank_you():

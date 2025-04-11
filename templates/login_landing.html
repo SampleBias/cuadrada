@@ -102,17 +102,30 @@
         
         .features {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 30px;
             margin: 60px 0;
             flex-wrap: wrap;
         }
         
         .feature {
-            width: 30%;
+            width: calc(25% - 30px);
             text-align: center;
             padding: 20px;
             min-width: 200px;
             margin-bottom: 30px;
+        }
+        
+        @media (max-width: 900px) {
+            .feature {
+                width: calc(50% - 30px);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .feature {
+                width: 100%;
+            }
         }
         
         .feature-icon {
@@ -187,6 +200,11 @@
                 <div class="feature-icon">📊</div>
                 <h3>Detailed Feedback</h3>
                 <p>Get specific improvement suggestions to enhance your research.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🏅</div>
+                <h3>Certified Results</h3>
+                <p>Receive official certification for successfully reviewed papers.</p>
             </div>
         </div>
         
