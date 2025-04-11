@@ -481,7 +481,7 @@ def callback():
         
         return redirect(url_for('auth_error'))
 
-@app.route('/auth-error')
+@app.route('/auth_error')
 def auth_error():
     """Error page for authentication failures"""
     return render_template('auth_error.html')
