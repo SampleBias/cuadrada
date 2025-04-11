@@ -540,27 +540,52 @@ def upload_file():
             # Use the filename as a fallback
             session['paper_title'] = os.path.splitext(filename)[0]
         
-        # Process only one reviewer for quick response
-        # This avoids the timeout by processing quickly
+        # Process all three reviewers
+        results = {}
+        all_accepted = True
+        
+        # Process Reviewer 1
         agent = ClaudeAgent()
         reviewer_name = "Reviewer 1"
-        
         result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+        results[reviewer_name] = result
+        all_accepted = all_accepted and result.get('accepted', False)
         
-        # Store data to process other reviewers later
+        # Process Reviewer 2
+        agent = ClaudeAgent()
+        reviewer_name = "Reviewer 2"
+        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+        results[reviewer_name] = result
+        all_accepted = all_accepted and result.get('accepted', False)
+        
+        # Process Reviewer 3
+        agent = ClaudeAgent()
+        reviewer_name = "Reviewer 3"
+        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+        results[reviewer_name] = result
+        all_accepted = all_accepted and result.get('accepted', False)
+        
+        # Store data to process other reviewers later if needed
         session['pending_file_path'] = upload_path
         session['submission_id'] = submission_id
         
-        # Initialize results dictionary with the first reviewer's result
-        results = {reviewer_name: result}
-        all_accepted = result.get('accepted', False)
-        
-        # Remove the 'accepted' key to save session space
-        if 'accepted' in results[reviewer_name]:
-            del results[reviewer_name]['accepted']
+        # Remove the 'accepted' key from each reviewer to save session space
+        for reviewer, reviewer_result in results.items():
+            if 'accepted' in reviewer_result:
+                del reviewer_result['accepted']
             
         session['review_results'] = results
         session['all_accepted'] = all_accepted
+        
+        # Generate certificate if all reviewers accepted the paper
+        certificate_filename = None
+        if all_accepted:
+            try:
+                certificate_filename = generate_certificate(paper_title or filename, submission_id)
+                session['certificate_filename'] = certificate_filename
+            except Exception as e:
+                print(f"Error generating certificate: {str(e)}")
+                traceback.print_exc()
         
         # Log the review in the database
         if user_id:
@@ -578,7 +603,7 @@ def upload_file():
                               results=results, 
                               all_accepted=all_accepted, 
                               submission_id=submission_id,
-                              certificate_filename=None,
+                              certificate_filename=certificate_filename,
                               processing=True)  # Flag to show processing status
             
     except Exception as e:
