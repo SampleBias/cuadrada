@@ -27,7 +27,7 @@ from supabase_db import (
     log_review, get_user_reviews, check_subscription_limit,
     upload_file_to_storage, upload_bytes_to_storage,
     download_file_from_storage, list_files_in_storage, delete_file_from_storage,
-    fix_upload_file_to_storage
+    fix_upload_file_to_storage, ensure_storage_buckets
 )
 
 load_dotenv()  # Load environment variables from .env file
@@ -54,6 +54,10 @@ app.config.update(
 
 # Increase session lifetime (default is 31 days)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+# Initialize storage buckets and check connection
+if not ensure_storage_buckets():
+    print("WARNING: Failed to initialize Supabase storage buckets. File uploads may not work.")
 
 # Auth0 setup
 oauth = OAuth(app)
@@ -525,15 +529,18 @@ def upload_file():
     user_id = session.get('profile', {}).get('user_id', None)
     
     if not check_subscription_limit(user_id):
+        print(f"Review limit reached for user {user_id}")
         return jsonify({
             'error': 'Review limit reached for your current plan. Please upgrade your subscription to continue.'
         }), 403
     
     if 'paper' not in request.files:
+        print("No file part in request")
         return redirect(url_for('index'))
     
     file = request.files['paper']
     if file.filename == '' or not allowed_file(file.filename):
+        print(f"Invalid file: {file.filename}")
         return redirect(url_for('index'))
     
     try:
@@ -543,13 +550,21 @@ def upload_file():
         # First save the file locally (this will be temporary)
         upload_path = os.path.join(os.path.dirname(__file__), app.config['UPLOAD_FOLDER'], f"{submission_id}_{filename}")
         file.save(upload_path)
+        print(f"File saved locally at: {upload_path}")
         
         # Upload to Supabase - using the fixed function
         file_url = fix_upload_file_to_storage(upload_path, 'uploads')
         
+        if not file_url:
+            print("Failed to upload file to Supabase storage")
+            return jsonify({
+                'error': 'Failed to upload file to storage. Please try again.'
+            }), 403
+        
+        print(f"File uploaded to Supabase: {file_url}")
+        
         # Store the file URL in the session
-        if file_url:
-            session['upload_file_url'] = file_url
+        session['upload_file_url'] = file_url
         
         # Store the paper title in session for later use in download
         paper_title = request.form.get('paper_title', '')

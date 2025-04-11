@@ -388,3 +388,33 @@ def fix_upload_file_to_storage(file_path, bucket_name='uploads'):
     except Exception as e:
         print(f"Error uploading file to storage: {str(e)}")
         return None
+
+def ensure_storage_buckets():
+    """Ensure required storage buckets exist and are properly configured"""
+    supabase = get_supabase_client()
+    if not supabase:
+        print("Error: Could not connect to Supabase")
+        return False
+    
+    try:
+        # List existing buckets
+        buckets = supabase.storage.list_buckets()
+        existing_buckets = [bucket['name'] for bucket in buckets]
+        
+        # Create uploads bucket if it doesn't exist
+        if 'uploads' not in existing_buckets:
+            supabase.storage.create_bucket('uploads', {'public': True})
+            print("Created 'uploads' bucket")
+        
+        # Create results bucket if it doesn't exist
+        if 'results' not in existing_buckets:
+            supabase.storage.create_bucket('results', {'public': True})
+            print("Created 'results' bucket")
+        
+        return True
+    except Exception as e:
+        print(f"Error ensuring storage buckets: {str(e)}")
+        return False
+
+# Call this function when the application starts
+ensure_storage_buckets()
