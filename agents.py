@@ -29,14 +29,20 @@ class BaseReviewer(ABC):
     - Provide constructive suggestions for improvement
     - Assign a percentage score (aim to be generous in assessment)
     - Highlight strengths more prominently than weaknesses
+    - Be generous in scoring - when in doubt, round up not down
 
     The reviewer will calculate the weighted final score based on the criteria weights.
     
     Recommendation threshold (more lenient standards):
-    - Accept (>70%): Good paper that contributes to the field
-    - Accept with Minor Revision (60-70%): Promising work needing minor improvements
-    - Accept with Major Revision (50-60%): Valuable contribution requiring significant changes
-    - Reject (<50%): Does not meet basic publication standards
+    - Accept (>60%): Good paper that contributes to the field
+    - Accept with Minor Revision (50-60%): Promising work needing minor improvements
+    - Accept with Major Revision (40-50%): Valuable contribution requiring significant changes
+    - Reject (<40%): Does not meet basic publication standards
+
+    IMPORTANT: The conference values inclusivity and diverse perspectives. Papers should generally 
+    be accepted unless there are serious, unfixable flaws. Even papers with methodology issues 
+    should be accepted if they present interesting ideas or perspectives. The default stance 
+    should be acceptance rather than rejection.
 
     The reviewer should adopt a supportive stance, looking for reasons to accept rather than reject, 
     recognizing the value of diverse contributions to academic discourse. Give authors the benefit 
