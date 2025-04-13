@@ -31,6 +31,8 @@ from supabase_db import (
     get_all_users, get_all_subscriptions, update_user_subscription
 )
 from functools import wraps
+import threading
+import queue
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -117,6 +119,39 @@ ACADEMIC_INDICATORS = [
 # Admin panel settings
 ADMIN_CODE = os.getenv('ADMIN_CODE', '123456')  # Default 6-digit code, should be changed in .env
 ADMIN_EMAILS = ['james.utley@syndicate-labs.io', 'jamesutleyhm@gmail.com']
+
+# Task queue for background processing
+task_queue = queue.Queue()
+review_results = {}
+
+# Start a worker thread to process tasks in the background
+def background_worker():
+    while True:
+        try:
+            task = task_queue.get()
+            if task is None:
+                break
+                
+            # Process the task
+            func = task.get('func')
+            args = task.get('args', [])
+            kwargs = task.get('kwargs', {})
+            
+            try:
+                func(*args, **kwargs)
+            except Exception as e:
+                print(f"Error in background task: {str(e)}")
+                traceback.print_exc()
+            
+            # Mark the task as done
+            task_queue.task_done()
+        except Exception as e:
+            print(f"Error in background worker: {str(e)}")
+            traceback.print_exc()
+            
+# Start the background worker thread
+worker_thread = threading.Thread(target=background_worker, daemon=True)
+worker_thread.start()
 
 def admin_required(f):
     """Decorator to check if user is admin"""
@@ -547,6 +582,77 @@ def index():
     leaderboard = get_leaderboard_data()
     return render_template('index.html', leaderboard=leaderboard)
 
+def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
+    """Process reviews in the background"""
+    global review_results
+    
+    try:
+        # Process all three reviewers
+        results = {}
+        all_accepted = True
+        
+        # Process Reviewer 1 - start with default model (sonnet)
+        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
+        reviewer_name = "Reviewer 1"
+        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+        results[reviewer_name] = result
+        all_accepted = all_accepted and result.get('accepted', False)
+        
+        # Process Reviewer 2 - also use default model
+        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
+        reviewer_name = "Reviewer 2"
+        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+        results[reviewer_name] = result
+        all_accepted = all_accepted and result.get('accepted', False)
+        
+        # Process Reviewer 3 - also use default model
+        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
+        reviewer_name = "Reviewer 3"
+        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+        results[reviewer_name] = result
+        all_accepted = all_accepted and result.get('accepted', False)
+        
+        # Generate certificate if all reviewers accepted the paper
+        certificate_filename = None
+        if all_accepted:
+            try:
+                certificate_filename = generate_certificate(paper_title or filename, submission_id)
+            except Exception as e:
+                print(f"Error generating certificate: {str(e)}")
+                traceback.print_exc()
+        
+        # Store the results in the global dictionary
+        review_results[submission_id] = {
+            'results': results,
+            'all_accepted': all_accepted,
+            'certificate_filename': certificate_filename,
+            'processing_complete': True
+        }
+        
+        # Log the review in the database
+        if user_id:
+            review_data = {
+                'user_id': user_id,
+                'submission_id': submission_id,
+                'paper_title': paper_title or filename,
+                'decision': 'COMPLETED',
+                'created_at': datetime.now().isoformat(),
+                'file_url': upload_path
+            }
+            log_review(review_data)
+            
+        print(f"Completed processing reviews for submission {submission_id}")
+        
+    except Exception as e:
+        print(f"Error processing reviews: {str(e)}")
+        traceback.print_exc()
+        
+        # Store error information in the results
+        review_results[submission_id] = {
+            'error': str(e),
+            'processing_complete': True
+        }
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """Optimized upload handler that processes one reviewer at a time"""
@@ -599,70 +705,42 @@ def upload_file():
             # Use the filename as a fallback
             session['paper_title'] = os.path.splitext(filename)[0]
         
-        # Process all three reviewers
-        results = {}
-        all_accepted = True
-        
-        # Process Reviewer 1 - start with default model (sonnet)
-        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
-        reviewer_name = "Reviewer 1"
-        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
-        results[reviewer_name] = result
-        all_accepted = all_accepted and result.get('accepted', False)
-        
-        # Process Reviewer 2 - also use default model
-        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
-        reviewer_name = "Reviewer 2"
-        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
-        results[reviewer_name] = result
-        all_accepted = all_accepted and result.get('accepted', False)
-        
-        # Process Reviewer 3 - also use default model
-        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
-        reviewer_name = "Reviewer 3"
-        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
-        results[reviewer_name] = result
-        all_accepted = all_accepted and result.get('accepted', False)
-        
-        # Store data to process other reviewers later if needed
-        session['pending_file_path'] = upload_path
+        # Store submission ID in session
         session['submission_id'] = submission_id
         
-        # Remove the 'accepted' key from each reviewer to save session space
-        for reviewer, reviewer_result in results.items():
-            if 'accepted' in reviewer_result:
-                del reviewer_result['accepted']
-            
-        session['review_results'] = results
-        session['all_accepted'] = all_accepted
+        # Initialize review results for this submission
+        review_results[submission_id] = {
+            'results': {},
+            'all_accepted': False,
+            'processing_complete': False,
+            'file_url': file_url
+        }
         
-        # Generate certificate if all reviewers accepted the paper
-        certificate_filename = None
-        if all_accepted:
-            try:
-                certificate_filename = generate_certificate(paper_title or filename, submission_id)
-                session['certificate_filename'] = certificate_filename
-            except Exception as e:
-                print(f"Error generating certificate: {str(e)}")
-                traceback.print_exc()
-        
-        # Log the review in the database
+        # Log the review in the database as "processing"
         if user_id:
             review_data = {
                 'user_id': user_id,
                 'submission_id': submission_id,
                 'paper_title': paper_title or filename,
-                'decision': 'PROCESSING',  # Will be updated later
+                'decision': 'PROCESSING',
                 'created_at': datetime.now().isoformat(),
-                'file_url': session.get('upload_file_url', '')
+                'file_url': file_url
             }
             log_review(review_data)
-            
+        
+        # Process reviews in the background
+        task = {
+            'func': process_reviews,
+            'args': [upload_path, submission_id, user_id, paper_title, filename]
+        }
+        task_queue.put(task)
+        print(f"Added review processing task to queue for submission {submission_id}")
+        
+        # Return results page with processing flag
         return render_template('results.html', 
-                              results=results, 
-                              all_accepted=all_accepted, 
+                              results={},  # Empty results to start
+                              all_accepted=False,
                               submission_id=submission_id,
-                              certificate_filename=certificate_filename,
                               processing=True)  # Flag to show processing status
             
     except Exception as e:
@@ -1080,7 +1158,10 @@ def admin_verify():
     # Process verification code
     if request.method == 'POST':
         verification_code = request.form.get('code')
-        if verification_code == ADMIN_CODE:
+        print(f"Verification attempt with code: {verification_code}, expected: {ADMIN_CODE}")
+        
+        # Ensure we're comparing strings
+        if str(verification_code) == str(ADMIN_CODE):
             session['is_admin'] = True
             return redirect(url_for('admin_panel'))
         else:
@@ -1123,6 +1204,69 @@ def admin_logout():
     """Logout from admin panel"""
     session.pop('is_admin', None)
     return redirect(url_for('admin_login'))
+
+@app.route('/check_review_status/<submission_id>', methods=['GET'])
+def check_review_status(submission_id):
+    """Check the status of a review"""
+    global review_results
+    
+    if submission_id not in review_results:
+        return jsonify({
+            'status': 'not_found',
+            'message': 'Review not found.'
+        }), 404
+    
+    result_data = review_results[submission_id]
+    
+    if 'error' in result_data:
+        return jsonify({
+            'status': 'error',
+            'message': result_data['error']
+        }), 500
+    
+    if not result_data.get('processing_complete', False):
+        return jsonify({
+            'status': 'processing',
+            'message': 'Review is still being processed.'
+        })
+    
+    # Return the results if processing is complete
+    return jsonify({
+        'status': 'complete',
+        'results': result_data.get('results', {}),
+        'all_accepted': result_data.get('all_accepted', False),
+        'certificate_filename': result_data.get('certificate_filename')
+    })
+
+@app.route('/review_results/<submission_id>', methods=['GET'])
+def view_review_results(submission_id):
+    """View the results of a review"""
+    global review_results
+    
+    if submission_id not in review_results:
+        flash('Review not found.', 'error')
+        return redirect(url_for('index'))
+    
+    result_data = review_results[submission_id]
+    
+    if 'error' in result_data:
+        flash(f"Error processing review: {result_data['error']}", 'error')
+        return redirect(url_for('index'))
+    
+    if not result_data.get('processing_complete', False):
+        # Still processing, show the processing page
+        return render_template('results.html', 
+                             results={},
+                             submission_id=submission_id, 
+                             processing=True)
+    
+    # Render the results page with the saved results
+    return render_template('results.html', 
+                          results=result_data.get('results', {}), 
+                          all_accepted=result_data.get('all_accepted', False),
+                          submission_id=submission_id,
+                          certificate_filename=result_data.get('certificate_filename'),
+                          processing=False)
 
 @app.errorhandler(Exception)
 def handle_exception(e):

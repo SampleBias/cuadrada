@@ -397,19 +397,38 @@ def ensure_storage_buckets():
         return False
     
     try:
-        # List existing buckets
-        buckets = supabase.storage.list_buckets()
-        existing_buckets = [bucket['name'] for bucket in buckets]
+        # List existing buckets - with error handling for different Supabase versions
+        try:
+            buckets = supabase.storage.list_buckets()
+            # Handle different return formats from different versions of supabase-py
+            if hasattr(buckets, 'data'):
+                existing_buckets = [bucket['name'] for bucket in buckets.data] if buckets.data else []
+            elif isinstance(buckets, list):
+                existing_buckets = [bucket['name'] for bucket in buckets] if buckets else []
+            else:
+                # Can't determine buckets, assume they don't exist
+                existing_buckets = []
+                print("Warning: Could not determine existing buckets format")
+        except AttributeError as e:
+            # Handle the case where buckets is not subscriptable
+            print(f"Warning: Error listing buckets ({str(e)}), assuming buckets don't exist")
+            existing_buckets = []
         
         # Create uploads bucket if it doesn't exist
         if 'uploads' not in existing_buckets:
-            supabase.storage.create_bucket('uploads', {'public': True})
-            print("Created 'uploads' bucket")
+            try:
+                supabase.storage.create_bucket('uploads', {'public': True})
+                print("Created 'uploads' bucket")
+            except Exception as bucket_error:
+                print(f"Error creating uploads bucket: {str(bucket_error)}")
         
         # Create results bucket if it doesn't exist
         if 'results' not in existing_buckets:
-            supabase.storage.create_bucket('results', {'public': True})
-            print("Created 'results' bucket")
+            try:
+                supabase.storage.create_bucket('results', {'public': True})
+                print("Created 'results' bucket")
+            except Exception as bucket_error:
+                print(f"Error creating results bucket: {str(bucket_error)}")
         
         return True
     except Exception as e:

@@ -198,7 +198,7 @@
         }
         
         .footer a:hover {
-            color: var(--text-light);
+            color: white;
         }
 
         .view-review-btn {
@@ -400,6 +400,41 @@
         .download-all-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 15px rgba(128, 0, 128, 0.3);
+        }
+
+        /* Loading animation */
+        .loading-container {
+            text-align: center;
+            padding: 40px;
+            margin: 20px 0;
+            border-radius: 12px;
+            background: rgba(128, 0, 128, 0.05);
+            border: 1px solid rgba(128, 0, 128, 0.1);
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(128, 0, 128, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #processingMessage {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        #processingDetails {
+            font-size: 14px;
+            color: rgba(224, 224, 224, 0.7);
         }
     </style>
 </head>
@@ -606,5 +641,111 @@
             });
         }
     </script>
+
+    {% if processing %}
+    <script>
+        // Show the loading spinner during processing
+        document.addEventListener('DOMContentLoaded', function() {
+            const submissionId = '{{ submission_id }}';
+            let pollingCount = 0;
+            const processingMessages = [
+                "Analyzing paper structure and content...",
+                "Evaluating research methodology...",
+                "Assessing novelty and contributions...",
+                "Examining technical depth and rigor...",
+                "Reviewing clarity and presentation...",
+                "Analyzing literature review completeness...",
+                "Calculating impact scores...",
+                "Formulating final recommendations...",
+                "Generating comprehensive feedback...",
+                "Finalizing review documents..."
+            ];
+            
+            const detailMessages = [
+                "This may take up to 2 minutes...",
+                "Almost there...",
+                "Finalizing your results...",
+                "We appreciate your patience...",
+                "Processing complex analysis...",
+                "Our AI is working hard on your paper..."
+            ];
+            
+            // Create loading container
+            const mainContent = document.querySelector('.container');
+            const loadingContainer = document.createElement('div');
+            loadingContainer.className = 'loading-container';
+            loadingContainer.innerHTML = `
+                <div class="loading-spinner"></div>
+                <h3 id="processingMessage">Analyzing paper structure and content...</h3>
+                <p id="processingDetails">This may take a few minutes...</p>
+            `;
+            
+            // Insert loading container before any existing content
+            mainContent.insertBefore(loadingContainer, mainContent.firstChild);
+            
+            // Function to update processing message randomly
+            function updateProcessingMessage() {
+                const processingMsg = document.getElementById('processingMessage');
+                const detailsMsg = document.getElementById('processingDetails');
+                
+                if (processingMsg && detailsMsg) {
+                    const randomMsgIndex = Math.floor(Math.random() * processingMessages.length);
+                    const randomDetailIndex = Math.floor(Math.random() * detailMessages.length);
+                    
+                    processingMsg.textContent = processingMessages[randomMsgIndex];
+                    detailsMsg.textContent = detailMessages[randomDetailIndex];
+                }
+            }
+            
+            // Set interval to change messages every 8 seconds
+            const messageInterval = setInterval(updateProcessingMessage, 8000);
+            
+            // Function to poll for review status
+            function pollReviewStatus() {
+                pollingCount++;
+                
+                fetch(`/check_review_status/${submissionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Poll response:', data);
+                        
+                        if (data.status === 'complete') {
+                            // Redirect to results page when processing is complete
+                            clearInterval(messageInterval);
+                            window.location.href = `/review_results/${submissionId}`;
+                        } else if (data.status === 'error') {
+                            // Show error message
+                            clearInterval(messageInterval);
+                            loadingContainer.innerHTML = `
+                                <div class="error-icon">❌</div>
+                                <h3>Error Processing Review</h3>
+                                <p>${data.message}</p>
+                                <a href="/" class="retry-button">Return to Home</a>
+                            `;
+                        } else if (pollingCount > 30) {
+                            // After 5 minutes (30 * 10 seconds), show a timeout message
+                            clearInterval(messageInterval);
+                            loadingContainer.innerHTML = `
+                                <div class="error-icon">⏱️</div>
+                                <h3>Processing Taking Longer Than Expected</h3>
+                                <p>Your review is still processing. You can wait or return later to check the results.</p>
+                                <a href="/review_results/${submissionId}" class="retry-button">Check Again</a>
+                                <a href="/" class="retry-button" style="margin-left: 10px;">Return to Home</a>
+                            `;
+                            clearTimeout(pollTimeout);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error polling review status:', error);
+                        // Continue polling even if there's an error
+                    });
+            }
+            
+            // Poll immediately and then every 10 seconds
+            pollReviewStatus();
+            const pollTimeout = setInterval(pollReviewStatus, 10000);
+        });
+    </script>
+    {% endif %}
 </body>
 </html> 
