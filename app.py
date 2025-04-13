@@ -1158,10 +1158,12 @@ def admin_verify():
     # Process verification code
     if request.method == 'POST':
         verification_code = request.form.get('code')
-        print(f"Verification attempt with code: {verification_code}, expected: {ADMIN_CODE}")
+        # Reload ADMIN_CODE from environment to ensure we have the latest value
+        current_admin_code = os.getenv('ADMIN_CODE', '123456')
+        print(f"Verification attempt with code: {verification_code}, expected: {current_admin_code}")
         
         # Ensure we're comparing strings
-        if str(verification_code) == str(ADMIN_CODE):
+        if str(verification_code) == str(current_admin_code):
             session['is_admin'] = True
             return redirect(url_for('admin_panel'))
         else:
