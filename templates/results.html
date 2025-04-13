@@ -832,7 +832,8 @@
                             console.log("Processing complete, redirecting to results page");
                             clearInterval(messageInterval);
                             clearTimeout(pollTimeout);
-                            window.location.href = `/view_review_results/${submissionId}`;
+                            // Force refresh the page instead of just changing URL
+                            window.location.reload();
                         } else if (data.status === 'error') {
                             // Show error message
                             console.error("Processing error:", data.message);

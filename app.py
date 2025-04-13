@@ -1371,8 +1371,14 @@ def check_review_status(submission_id):
     
     result_data = review_results[submission_id]
     
+    # Deep check for processing_complete flag
+    is_complete = result_data.get('processing_complete', False)
+    
+    # Also check if results are populated - this is a more reliable indicator
+    has_results = bool(result_data.get('results')) and len(result_data.get('results', {})) >= 3
+    
     # Log the status we're returning
-    status = 'error' if 'error' in result_data else 'processing' if not result_data.get('processing_complete', False) else 'complete'
+    status = 'error' if 'error' in result_data else 'complete' if (is_complete or has_results) else 'processing'
     print(f"Status for submission '{submission_id}': {status}")
     
     if 'error' in result_data:
@@ -1381,7 +1387,7 @@ def check_review_status(submission_id):
             'message': result_data['error']
         }), 500
     
-    if not result_data.get('processing_complete', False):
+    if not (is_complete or has_results):
         return jsonify({
             'status': 'processing',
             'message': 'Review is still being processed.'
@@ -1449,7 +1455,11 @@ def view_review_results(submission_id):
             flash(f"Error in processing your document: {result_data['error']}")
             return redirect(url_for('home'))
         
-        if not result_data.get('processing_complete', False):
+        # Check if processing is complete using multiple indicators
+        is_complete = result_data.get('processing_complete', False)
+        has_results = bool(result_data.get('results')) and len(result_data.get('results', {})) >= 3
+        
+        if not (is_complete or has_results):
             print(f"Processing not complete for submission '{submission_id}'")
             # Show processing page instead of redirecting
             return render_template(
@@ -1458,6 +1468,11 @@ def view_review_results(submission_id):
                 submission_id=submission_id,
                 processing=True
             )
+        
+        # If we reach here, processing is complete - make sure flag is set for future checks
+        if not is_complete and has_results:
+            result_data['processing_complete'] = True
+            save_review_results()
         
         # If processing is complete, show the results
         print(f"Successfully retrieved results for submission '{submission_id}'")
