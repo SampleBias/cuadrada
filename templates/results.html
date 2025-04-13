@@ -3,6 +3,9 @@
 <head>
     <title>Cuadrada - Review Results</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='purple' stroke-width='10'/></svg>">
+    <meta name="submission-id" content="{{ submission_id }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root {
             --primary: #800080;
@@ -648,11 +651,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Get submission ID directly from the URL
             let submissionId = '{{ submission_id }}';
+            console.log("Initial submission ID from template:", submissionId);
             
             // Extract from URL path if the template value is empty or "None"
             if (!submissionId || submissionId === "None") {
                 // The URL should be in the format: /review_results/{submissionId}
                 const pathParts = window.location.pathname.split('/');
+                console.log("URL path parts:", pathParts);
                 if (pathParts.length > 2) {
                     submissionId = pathParts[pathParts.length - 1];
                     console.log("Extracted submission ID from URL path:", submissionId);
@@ -661,37 +666,52 @@
             
             // If still no valid submission ID, check session storage or local storage
             if (!submissionId || submissionId === "None") {
-                submissionId = sessionStorage.getItem('submissionId') || localStorage.getItem('submissionId');
-                console.log("Retrieved submission ID from storage:", submissionId);
+                const sessionId = sessionStorage.getItem('submissionId');
+                const localId = localStorage.getItem('submissionId');
+                console.log("Session storage ID:", sessionId);
+                console.log("Local storage ID:", localId);
+                submissionId = sessionId || localId;
             }
             
             // Save to both session and local storage for redundancy
             if (submissionId && submissionId !== "None") {
                 sessionStorage.setItem('submissionId', submissionId);
                 localStorage.setItem('submissionId', submissionId);
-                console.log("Saved submission ID to storage:", submissionId);
+                console.log("Saved valid submission ID to storage:", submissionId);
             } else {
-                console.error("No valid submission ID found");
-                // Show error and redirect after delay
-                const container = document.querySelector('.container');
-                if (container) {
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'error-message';
-                    errorDiv.innerHTML = `
-                        <div class="error-icon">❌</div>
-                        <h3>Error: Missing Submission ID</h3>
-                        <p>Your review couldn't be found. Redirecting to home page...</p>
-                    `;
-                    container.prepend(errorDiv);
-                }
+                console.error("No valid submission ID found after all detection methods");
+                // Don't redirect immediately - try one more fallback method
+                // Check for submission ID in meta tag (we'll add this to the template)
+                const metaSubmissionId = document.querySelector('meta[name="submission-id"]')?.content;
+                console.log("Meta tag submission ID:", metaSubmissionId);
                 
-                setTimeout(() => {
-                    window.location.href = "/";
-                }, 3000);
-                return;
+                if (metaSubmissionId && metaSubmissionId !== "None") {
+                    submissionId = metaSubmissionId;
+                    sessionStorage.setItem('submissionId', submissionId);
+                    localStorage.setItem('submissionId', submissionId);
+                    console.log("Using submission ID from meta tag:", submissionId);
+                } else {
+                    // Now show error and redirect after delay
+                    const container = document.querySelector('.container');
+                    if (container) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'error-message';
+                        errorDiv.innerHTML = `
+                            <div class="error-icon">❌</div>
+                            <h3>Error: Missing Submission ID</h3>
+                            <p>Your review couldn't be found. Redirecting to home page...</p>
+                        `;
+                        container.prepend(errorDiv);
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.href = "/";
+                    }, 5000); // Give a longer delay to see the error
+                    return;
+                }
             }
             
-            console.log("Using submission ID for polling:", submissionId);
+            console.log("Final submission ID for polling:", submissionId);
             
             let pollingCount = 0;
             const processingMessages = [

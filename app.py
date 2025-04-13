@@ -687,6 +687,7 @@ def upload_file():
     
     try:
         submission_id = generate_unique_filename()
+        print(f"Generated new submission ID: {submission_id}")
         filename = secure_filename(file.filename)
         
         # First save the file locally (this will be temporary)
@@ -708,14 +709,17 @@ def upload_file():
         # Store the file URL in the session
         session['upload_file_url'] = file_url
         session['submission_id'] = submission_id  # Store submission ID explicitly in session
+        print(f"Stored submission ID '{submission_id}' in session")
         
         # Store the paper title in session for later use in download
         paper_title = request.form.get('paper_title', '')
         if paper_title:
             session['paper_title'] = paper_title
+            print(f"Stored paper title in session: '{paper_title}'")
         else:
             # Use the filename as a fallback
             session['paper_title'] = os.path.splitext(filename)[0]
+            print(f"No paper title provided, using filename: '{session['paper_title']}'")
         
         # Initialize review results for this submission
         review_results[submission_id] = {
@@ -724,6 +728,8 @@ def upload_file():
             'processing_complete': False,
             'file_url': file_url
         }
+        print(f"Initialized review_results for submission ID: '{submission_id}'")
+        print(f"Available submission IDs: {list(review_results.keys())}")
         
         # Log the review in the database as "processing"
         if user_id:
@@ -1222,7 +1228,10 @@ def check_review_status(submission_id):
     global review_results
     
     # Log the check attempt
-    print(f"Checking review status for submission ID: '{submission_id}'")
+    print(f"Checking review status for submission ID: '{submission_id}' | Type: {type(submission_id)}")
+    
+    # Ensure submission_id is a string
+    submission_id = str(submission_id) if submission_id else None
     
     # Handle None or empty submission ID
     if not submission_id or submission_id == "None":
@@ -1235,6 +1244,7 @@ def check_review_status(submission_id):
     # Check if submission exists in our global results dictionary
     if submission_id not in review_results:
         print(f"Submission ID not found in review_results: '{submission_id}'")
+        print(f"Available submission IDs: {list(review_results.keys())}")
         return jsonify({
             'status': 'not_found',
             'message': 'Review not found.'
@@ -1271,8 +1281,11 @@ def view_review_results(submission_id):
     """View the results of a review"""
     global review_results
     
-    # Log the view attempt
-    print(f"Viewing review results for submission ID: '{submission_id}'")
+    # Log the view attempt with more details
+    print(f"Viewing review results for submission ID: '{submission_id}' | Type: {type(submission_id)}")
+    
+    # Ensure submission_id is a string 
+    submission_id = str(submission_id) if submission_id else None
     
     # Check if submission_id is None or "None" string
     if not submission_id or submission_id == "None":
@@ -1288,6 +1301,7 @@ def view_review_results(submission_id):
     # Check if submission exists in our dictionary
     if submission_id not in review_results:
         print(f"Submission ID not found in review_results: '{submission_id}'")
+        print(f"Available submission IDs: {list(review_results.keys())}")
         flash('Review not found. It may have expired or been removed.', 'error')
         return redirect(url_for('index'))
     
@@ -1385,6 +1399,40 @@ def view_review_results(submission_id):
                           submission_id=submission_id,
                           certificate_filename=result_data.get('certificate_filename'),
                           processing=False)
+
+@app.route('/debug/submissions', methods=['GET'])
+def debug_submissions():
+    """Debug route to view current submissions (admin only)"""
+    # Only allow access to admin emails
+    user_email = session.get('profile', {}).get('email', '')
+    if user_email not in ADMIN_EMAILS:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get all submission IDs and their processing status
+    submissions_data = {}
+    for submission_id, data in review_results.items():
+        submissions_data[submission_id] = {
+            'processing_complete': data.get('processing_complete', False),
+            'has_error': 'error' in data,
+            'needs_pdf_generation': data.get('needs_pdf_generation', False),
+            'all_accepted': data.get('all_accepted', False),
+            'reviewer_count': len(data.get('results', {}))
+        }
+    
+    # Include session data to help with debugging
+    session_data = {
+        'submission_id': session.get('submission_id'),
+        'paper_title': session.get('paper_title'),
+        'logged_in': session.get('logged_in', False),
+        'is_admin': session.get('is_admin', False),
+        'user_email': user_email
+    }
+    
+    return jsonify({
+        'submissions': submissions_data,
+        'session': session_data,
+        'submission_count': len(submissions_data)
+    })
 
 @app.errorhandler(Exception)
 def handle_exception(e):
