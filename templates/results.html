@@ -773,13 +773,30 @@
                 
                 fetch(`/check_review_status/${submissionId}`)
                     .then(response => {
+                        console.log(`Poll response status: ${response.status}`);
                         if (!response.ok) {
                             throw new Error(`Server returned ${response.status}: ${response.statusText}`);
                         }
                         return response.json();
                     })
                     .then(data => {
-                        console.log('Poll response:', data);
+                        console.log('Poll response data:', data);
+                        
+                        // Update the UI to show current status
+                        const processingMsg = document.getElementById('processingMessage');
+                        const detailsMsg = document.getElementById('processingDetails');
+                        
+                        if (processingMsg) {
+                            if (data.status === 'processing') {
+                                processingMsg.textContent = "Still working on your review...";
+                            } else if (data.status === 'error') {
+                                processingMsg.textContent = "Error processing review";
+                            } else if (data.status === 'not_found') {
+                                processingMsg.textContent = "Review not found";
+                            } else if (data.status === 'complete') {
+                                processingMsg.textContent = "Review complete!";
+                            }
+                        }
                         
                         if (data.status === 'complete') {
                             // Redirect to results page when processing is complete
@@ -799,21 +816,26 @@
                                 <a href="/" class="retry-button">Return to Home</a>
                             `;
                         } else if (pollingCount > 30) {
-                            // After 5 minutes (30 * 10 seconds), show a timeout message
-                            console.log("Polling timeout reached");
-                            clearInterval(messageInterval);
-                            clearTimeout(pollTimeout);
+                            // After 5 minutes (30 * 10 seconds), show a timeout message but don't stop polling
+                            console.log("Polling timeout reached but continuing to poll");
                             loadingContainer.innerHTML = `
                                 <div class="error-icon">⏱️</div>
                                 <h3>Processing Taking Longer Than Expected</h3>
                                 <p>Your review is still processing. You can wait or return later to check the results.</p>
                                 <a href="/view_review_results/${submissionId}" class="retry-button">Check Again</a>
                                 <a href="/" class="retry-button" style="margin-left: 10px;">Return to Home</a>
+                                <div class="loading-spinner" style="margin-top: 20px;"></div>
+                                <p id="stillWorkingMsg">Still working on your review...</p>
                             `;
                         }
                     })
                     .catch(error => {
                         console.error('Error polling review status:', error);
+                        // Display error in status
+                        if (document.getElementById('processingDetails')) {
+                            document.getElementById('processingDetails').textContent = `Error: ${error.message}`;
+                        }
+                        
                         // Add a backoff strategy to avoid hammering the server with requests
                         if (pollingCount > 5) {
                             // Increase polling interval after 5 attempts

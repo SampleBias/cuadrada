@@ -170,29 +170,51 @@ task_queue = queue.Queue()
 
 # Start a worker thread to process tasks in the background
 def background_worker():
+    """Process tasks from the queue in the background"""
+    print("Starting background worker thread...")
+    
     while True:
         try:
-            task = task_queue.get()
-            if task is None:
-                break
-                
-            # Process the task
+            # Get task from queue with a timeout
+            task = task_queue.get(timeout=1.0)
+            
+            # Extract function and arguments
             func = task.get('func')
             args = task.get('args', [])
-            kwargs = task.get('kwargs', {})
             
-            try:
-                func(*args, **kwargs)
-            except Exception as e:
-                print(f"Error in background task: {str(e)}")
-                traceback.print_exc()
-            
-            # Mark the task as done
-            task_queue.task_done()
+            if func:
+                try:
+                    print(f"Processing task: {func.__name__} with args: {args}")
+                    # Execute the function with arguments
+                    func(*args)
+                    print(f"Task {func.__name__} completed successfully")
+                except Exception as e:
+                    error_msg = f"Error executing task {func.__name__}: {str(e)}"
+                    print(error_msg)
+                    traceback.print_exc()
+                    
+                    # If this is a review processing task, update the review_results with the error
+                    if func.__name__ == 'process_reviews' and len(args) >= 2:
+                        submission_id = args[1]  # Second argument is submission_id
+                        if submission_id in review_results:
+                            review_results[submission_id]['error'] = error_msg
+                            review_results[submission_id]['processing_complete'] = True
+                            save_review_results()
+                            print(f"Updated review_results with error for submission {submission_id}")
+                finally:
+                    # Mark the task as done
+                    task_queue.task_done()
+        except queue.Empty:
+            # No tasks in queue, just continue
+            pass
         except Exception as e:
-            print(f"Error in background worker: {str(e)}")
+            # Log any unexpected errors in the worker thread
+            print(f"Unexpected error in background worker: {str(e)}")
             traceback.print_exc()
             
+            # Small sleep to prevent CPU spinning on repeated errors
+            time.sleep(0.5)
+
 # Start the background worker thread
 worker_thread = threading.Thread(target=background_worker, daemon=True)
 worker_thread.start()
@@ -631,6 +653,8 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
     global review_results
     
     try:
+        print(f"Starting review processing for '{submission_id}'")
+        
         # Process all three reviewers
         results = {}
         all_accepted = True
@@ -638,6 +662,7 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
         # Process Reviewer 1 - start with default model (sonnet)
         agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
         reviewer_name = "Reviewer 1"
+        print(f"Processing {reviewer_name} for submission '{submission_id}'")
         result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
         
         # Don't generate PDF in background thread (causes Flask context issues)
@@ -650,10 +675,12 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
             'model_downgraded': result.get('model_downgraded', False)
         }
         all_accepted = all_accepted and result.get('accepted', False)
+        print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
         
         # Process Reviewer 2 - also use default model
         agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
         reviewer_name = "Reviewer 2"
+        print(f"Processing {reviewer_name} for submission '{submission_id}'")
         result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
         
         # Store results without PDF generation
@@ -665,10 +692,12 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
             'model_downgraded': result.get('model_downgraded', False)
         }
         all_accepted = all_accepted and result.get('accepted', False)
+        print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
         
         # Process Reviewer 3 - also use default model
         agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
         reviewer_name = "Reviewer 3"
+        print(f"Processing {reviewer_name} for submission '{submission_id}'")
         result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
         
         # Store results without PDF generation
@@ -680,17 +709,32 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
             'model_downgraded': result.get('model_downgraded', False)
         }
         all_accepted = all_accepted and result.get('accepted', False)
+        print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
         
+        print(f"All reviews completed for submission '{submission_id}'. Updating global state.")
+        
+        # Check if entry exists, create it if needed
+        if submission_id not in review_results:
+            print(f"Review results entry missing, creating new one for '{submission_id}'")
+            review_results[submission_id] = {
+                'results': {},
+                'all_accepted': False,
+                'processing_complete': False,
+                'file_url': upload_path
+            }
+            
         # Store the results in the global dictionary (without generating PDFs)
         review_results[submission_id] = {
             'results': results,
             'all_accepted': all_accepted,
-            'processing_complete': True,
+            'processing_complete': True,  # Mark as complete
             'needs_pdf_generation': True  # Flag to generate PDFs later in a request context
         }
         
         # Save to persistent storage
+        print(f"Saving completed review results for '{submission_id}' to persistent storage")
         save_review_results()
+        print(f"Review results saved. Current submission IDs: {list(review_results.keys())}")
         
         # Log the review in the database
         if user_id:
@@ -1407,8 +1451,13 @@ def view_review_results(submission_id):
         
         if not result_data.get('processing_complete', False):
             print(f"Processing not complete for submission '{submission_id}'")
-            flash('The review is still being processed. Please check back later.')
-            return redirect(url_for('home'))
+            # Show processing page instead of redirecting
+            return render_template(
+                'results.html',
+                results={},
+                submission_id=submission_id,
+                processing=True
+            )
         
         # If processing is complete, show the results
         print(f"Successfully retrieved results for submission '{submission_id}'")
@@ -1485,6 +1534,36 @@ def debug_submissions():
         'session': session_data,
         'submission_count': len(submissions_data)
     })
+
+@app.route('/api/process_status', methods=['GET'])
+def process_status():
+    """API endpoint to check the process status of the background workers"""
+    try:
+        # Only allow access to admins
+        user_email = session.get('profile', {}).get('email', '')
+        if user_email not in ADMIN_EMAILS:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        # Get task queue size
+        queue_size = task_queue.qsize()
+        
+        # Get review results stats
+        result_stats = {
+            "total_submissions": len(review_results),
+            "completed": sum(1 for data in review_results.values() if data.get('processing_complete', False)),
+            "in_progress": sum(1 for data in review_results.values() if not data.get('processing_complete', False)),
+            "with_errors": sum(1 for data in review_results.values() if 'error' in data),
+            "needs_pdf_generation": sum(1 for data in review_results.values() if data.get('needs_pdf_generation', False))
+        }
+        
+        return jsonify({
+            "status": "ok",
+            "queue_size": queue_size,
+            "review_results": result_stats,
+            "submissions": list(review_results.keys())
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
