@@ -769,6 +769,7 @@
             // Function to poll for review status
             function pollReviewStatus() {
                 pollingCount++;
+                const submissionId = '{{ submission_id }}';
                 console.log(`Polling for status (attempt ${pollingCount}): /check_review_status/${submissionId}`);
                 
                 fetch(`/check_review_status/${submissionId}`)
