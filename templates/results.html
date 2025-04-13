@@ -769,7 +769,35 @@
             // Function to poll for review status
             function pollReviewStatus() {
                 pollingCount++;
-                const submissionId = '{{ submission_id }}';
+                
+                // Get submission ID using multiple fallback methods
+                let submissionId = '{{ submission_id }}';
+                
+                // If template variable is None, extract from URL or storage
+                if (!submissionId || submissionId === "None") {
+                    // Try meta tag
+                    const metaSubmissionId = document.querySelector('meta[name="submission-id"]')?.content;
+                    if (metaSubmissionId && metaSubmissionId !== "None") {
+                        submissionId = metaSubmissionId;
+                    } else {
+                        // Try path
+                        const pathParts = window.location.pathname.split('/');
+                        if (pathParts.length > 2) {
+                            submissionId = pathParts[pathParts.length - 1];
+                        } else {
+                            // Try storage
+                            submissionId = sessionStorage.getItem('submissionId') || 
+                                         localStorage.getItem('submissionId');
+                        }
+                    }
+                }
+                
+                // Only proceed if we have a valid ID
+                if (!submissionId || submissionId === "None") {
+                    console.error("No valid submission ID found for polling");
+                    return;
+                }
+                
                 console.log(`Polling for status (attempt ${pollingCount}): /check_review_status/${submissionId}`);
                 
                 fetch(`/check_review_status/${submissionId}`)
