@@ -27,8 +27,10 @@ from supabase_db import (
     log_review, get_user_reviews, check_subscription_limit,
     upload_file_to_storage, upload_bytes_to_storage,
     download_file_from_storage, list_files_in_storage, delete_file_from_storage,
-    fix_upload_file_to_storage, ensure_storage_buckets
+    fix_upload_file_to_storage, ensure_storage_buckets,
+    get_all_users, get_all_subscriptions, update_user_subscription
 )
+from functools import wraps
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -111,6 +113,29 @@ ACADEMIC_INDICATORS = [
     "FINDINGS",
     "ANALYSIS"
 ]
+
+# Admin panel settings
+ADMIN_CODE = os.getenv('ADMIN_CODE', '123456')  # Default 6-digit code, should be changed in .env
+ADMIN_EMAILS = ['james.utley@syndicate-labs.io', 'jamesutleyhm@gmail.com']
+
+def admin_required(f):
+    """Decorator to check if user is admin"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if user is logged in
+        if not session.get('logged_in'):
+            return redirect(url_for('admin_login'))
+            
+        # Check if user has admin session
+        if not session.get('is_admin'):
+            # Check if email is in admin list
+            user_email = session.get('profile', {}).get('email', '')
+            if user_email not in ADMIN_EMAILS:
+                return redirect(url_for('admin_login'))
+            return redirect(url_for('admin_verify'))
+            
+        return f(*args, **kwargs)
+    return decorated_function
 
 def allowed_file(filename):
     """Check if file has an allowed extension"""
@@ -993,6 +1018,111 @@ def favicon():
     # Since we're using an SVG favicon, return the SVG content directly
     svg_content = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='purple' stroke-width='10'/></svg>"""
     return Response(svg_content, mimetype='image/svg+xml')
+
+@app.route('/admin', methods=['GET'])
+@admin_required
+def admin_panel():
+    """Admin panel for managing user subscriptions"""
+    # Get all users and subscriptions
+    users = get_all_users()
+    subscriptions = get_all_subscriptions()
+    
+    # Create a map of user_id to subscription
+    subscription_map = {sub['user_id']: sub for sub in subscriptions}
+    
+    # Combine user and subscription data
+    user_data = []
+    for user in users:
+        user_id = user.get('user_id')
+        subscription = subscription_map.get(user_id, {})
+        user_data.append({
+            'user_id': user_id,
+            'email': user.get('email', ''),
+            'name': user.get('name', ''),
+            'created_at': user.get('created_at', ''),
+            'plan_type': subscription.get('plan_type', 'none'),
+            'status': subscription.get('status', ''),
+            'max_reviews': subscription.get('max_reviews', 0),
+            'current_period_start': subscription.get('current_period_start', ''),
+            'current_period_end': subscription.get('current_period_end', '')
+        })
+    
+    return render_template('admin.html', user_data=user_data)
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Admin login page"""
+    if request.method == 'POST':
+        # If user is logged in, check if they're an admin
+        if session.get('logged_in'):
+            user_email = session.get('profile', {}).get('email', '')
+            if user_email in ADMIN_EMAILS:
+                return redirect(url_for('admin_verify'))
+            else:
+                flash('You do not have admin privileges.', 'error')
+        else:
+            # Redirect to regular login
+            return redirect(url_for('login'))
+    
+    return render_template('admin_login.html')
+
+@app.route('/admin/verify', methods=['GET', 'POST'])
+def admin_verify():
+    """Admin verification code page"""
+    # Only allow access if user is logged in and has an admin email
+    if not session.get('logged_in'):
+        return redirect(url_for('admin_login'))
+        
+    user_email = session.get('profile', {}).get('email', '')
+    if user_email not in ADMIN_EMAILS:
+        return redirect(url_for('admin_login'))
+    
+    # Process verification code
+    if request.method == 'POST':
+        verification_code = request.form.get('code')
+        if verification_code == ADMIN_CODE:
+            session['is_admin'] = True
+            return redirect(url_for('admin_panel'))
+        else:
+            flash('Invalid verification code.', 'error')
+    
+    return render_template('admin_verify.html')
+
+@app.route('/admin/update_subscription', methods=['POST'])
+@admin_required
+def update_subscription_admin():
+    """Update a user's subscription"""
+    user_id = request.form.get('user_id')
+    plan_type = request.form.get('plan_type')
+    max_reviews = request.form.get('max_reviews')
+    status = request.form.get('status', 'active')
+    
+    if not user_id or not plan_type or not max_reviews:
+        flash('Missing required fields.', 'error')
+        return redirect(url_for('admin_panel'))
+    
+    # Create subscription data
+    subscription_data = {
+        'plan_type': plan_type,
+        'status': status,
+        'max_reviews': int(max_reviews),
+        'current_period_start': datetime.now().isoformat(),
+        'current_period_end': (datetime.now() + timedelta(days=30)).isoformat()
+    }
+    
+    # Update subscription
+    if update_user_subscription(user_id, subscription_data):
+        flash(f'Subscription updated for user {user_id}.', 'success')
+    else:
+        flash(f'Failed to update subscription for user {user_id}.', 'error')
+    
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Logout from admin panel"""
+    session.pop('is_admin', None)
+    return redirect(url_for('admin_login'))
 
 @app.errorhandler(Exception)
 def handle_exception(e):

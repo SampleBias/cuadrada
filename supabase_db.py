@@ -416,5 +416,53 @@ def ensure_storage_buckets():
         print(f"Error ensuring storage buckets: {str(e)}")
         return False
 
+def get_all_users():
+    """Get all users from the database for admin panel"""
+    supabase = get_supabase_client()
+    if not supabase:
+        return []
+    
+    try:
+        response = supabase.table('users').select('*').execute()
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting all users: {str(e)}")
+        return []
+
+def get_all_subscriptions():
+    """Get all subscriptions from the database for admin panel"""
+    supabase = get_supabase_client()
+    if not supabase:
+        return []
+    
+    try:
+        response = supabase.table('subscriptions').select('*').execute()
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting all subscriptions: {str(e)}")
+        return []
+
+def update_user_subscription(user_id, subscription_data):
+    """Update a user's subscription by user_id"""
+    supabase = get_supabase_client()
+    if not supabase:
+        return False
+    
+    try:
+        # First get the subscription id for this user
+        response = supabase.table('subscriptions').select('id').eq('user_id', user_id).execute()
+        if not response.data or len(response.data) == 0:
+            # No subscription found, create one
+            subscription_data['user_id'] = user_id
+            return create_subscription(subscription_data)
+        
+        # Update existing subscription
+        subscription_id = response.data[0]['id']
+        response = supabase.table('subscriptions').update(subscription_data).eq('id', subscription_id).execute()
+        return bool(response.data)
+    except Exception as e:
+        print(f"Error updating user subscription: {str(e)}")
+        return False
+
 # Call this function when the application starts
 ensure_storage_buckets()
