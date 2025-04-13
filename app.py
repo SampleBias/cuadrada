@@ -33,8 +33,50 @@ from supabase_db import (
 from functools import wraps
 import threading
 import queue
+import pickle
+import os.path
 
 load_dotenv()  # Load environment variables from .env file
+
+# Global variable to store review results
+review_results = {}
+
+# Functions to manage persistent review_results
+def save_review_results():
+    """Save review results to a file to persist across app restarts"""
+    try:
+        # Save to a file in the tmp directory for Heroku
+        if 'DYNO' in os.environ:
+            save_path = '/tmp/review_results.pickle'
+        else:
+            save_path = os.path.join(os.path.dirname(__file__), 'review_results.pickle')
+        
+        with open(save_path, 'wb') as f:
+            pickle.dump(review_results, f)
+        print(f"Saved review results to {save_path}")
+    except Exception as e:
+        print(f"Error saving review results: {str(e)}")
+        traceback.print_exc()
+
+def load_review_results():
+    """Load review results from a file if it exists"""
+    global review_results
+    try:
+        # Load from a file in the tmp directory for Heroku
+        if 'DYNO' in os.environ:
+            load_path = '/tmp/review_results.pickle'
+        else:
+            load_path = os.path.join(os.path.dirname(__file__), 'review_results.pickle')
+        
+        if os.path.exists(load_path):
+            with open(load_path, 'rb') as f:
+                loaded_results = pickle.load(f)
+                if isinstance(loaded_results, dict):
+                    review_results = loaded_results
+                    print(f"Loaded {len(review_results)} review results from {load_path}")
+    except Exception as e:
+        print(f"Error loading review results: {str(e)}")
+        traceback.print_exc()
 
 # Access the API keys
 claude_api_key = os.getenv('CLAUDE_API_KEY')
@@ -55,6 +97,9 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
 )
+
+# Load saved review results
+load_review_results()
 
 # Increase session lifetime (default is 31 days)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
@@ -122,7 +167,6 @@ ADMIN_EMAILS = ['james.utley@syndicate-labs.io', 'jamesutleyhm@gmail.com']
 
 # Task queue for background processing
 task_queue = queue.Queue()
-review_results = {}
 
 # Start a worker thread to process tasks in the background
 def background_worker():
@@ -640,6 +684,9 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
             'needs_pdf_generation': True  # Flag to generate PDFs later in a request context
         }
         
+        # Save to persistent storage
+        save_review_results()
+        
         # Log the review in the database
         if user_id:
             review_data = {
@@ -663,6 +710,9 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
             'error': str(e),
             'processing_complete': True
         }
+        
+        # Save to persistent storage even on error
+        save_review_results()
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -730,6 +780,9 @@ def upload_file():
         }
         print(f"Initialized review_results for submission ID: '{submission_id}'")
         print(f"Available submission IDs: {list(review_results.keys())}")
+        
+        # Save to persistent storage
+        save_review_results()
         
         # Log the review in the database as "processing"
         if user_id:
@@ -1245,10 +1298,27 @@ def check_review_status(submission_id):
     if submission_id not in review_results:
         print(f"Submission ID not found in review_results: '{submission_id}'")
         print(f"Available submission IDs: {list(review_results.keys())}")
-        return jsonify({
-            'status': 'not_found',
-            'message': 'Review not found.'
-        }), 404
+        
+        # If we have a file URL in the session, try to recover by initializing the review_results
+        file_url = session.get('upload_file_url')
+        if file_url:
+            print(f"Attempting to recover submission data from session for polling. File URL: {file_url}")
+            # Initialize review results for this submission from session data
+            review_results[submission_id] = {
+                'results': {},
+                'all_accepted': False,
+                'processing_complete': False,
+                'file_url': file_url
+            }
+            print(f"Created new entry in review_results for '{submission_id}' from session data")
+            
+            # Save the recovered data
+            save_review_results()
+        else:
+            return jsonify({
+                'status': 'not_found',
+                'message': 'Review not found.'
+            }), 404
     
     result_data = review_results[submission_id]
     
@@ -1276,129 +1346,99 @@ def check_review_status(submission_id):
         'certificate_filename': result_data.get('certificate_filename')
     })
 
-@app.route('/review_results/<submission_id>', methods=['GET'])
+@app.route('/view_review_results/<submission_id>')
 def view_review_results(submission_id):
     """View the results of a review"""
     global review_results
     
-    # Log the view attempt with more details
-    print(f"Viewing review results for submission ID: '{submission_id}' | Type: {type(submission_id)}")
-    
-    # Ensure submission_id is a string 
-    submission_id = str(submission_id) if submission_id else None
-    
-    # Check if submission_id is None or "None" string
-    if not submission_id or submission_id == "None":
-        print(f"Invalid submission ID in view_review_results: '{submission_id}'")
-        flash('Invalid submission ID.', 'error')
-        return redirect(url_for('index'))
-    
-    # Store the submission ID in the session for persistence
-    if submission_id and submission_id != "None":
-        session['submission_id'] = submission_id
-        print(f"Stored submission ID '{submission_id}' in session")
-    
-    # Check if submission exists in our dictionary
-    if submission_id not in review_results:
-        print(f"Submission ID not found in review_results: '{submission_id}'")
-        print(f"Available submission IDs: {list(review_results.keys())}")
-        flash('Review not found. It may have expired or been removed.', 'error')
-        return redirect(url_for('index'))
-    
-    result_data = review_results[submission_id]
-    
-    # Check for errors in the result
-    if 'error' in result_data:
-        error_msg = f"Error processing review: {result_data['error']}"
-        print(error_msg)
-        flash(error_msg, 'error')
-        return redirect(url_for('index'))
-    
-    # If still processing, show the processing page
-    if not result_data.get('processing_complete', False):
-        print(f"Review for submission '{submission_id}' is still processing, showing processing page")
-        return render_template('results.html', 
-                             results={},
-                             submission_id=submission_id, 
-                             processing=True)
-    
-    # Check if we need to generate PDFs (only done in request context)
-    if result_data.get('needs_pdf_generation', False):
-        try:
-            print(f"Generating PDFs for submission {submission_id} in request context")
+    try:
+        print(f"Viewing review results for submission ID: '{submission_id}'")
+        
+        # Check login status
+        if 'user' not in session or not session['user']:
+            print("User not logged in, redirecting to login")
+            flash('You need to be logged in to view review results.')
+            return redirect(url_for('login'))
+        
+        # Ensure submission_id is a string
+        submission_id = str(submission_id) if submission_id else None
+        
+        # Handle None or empty submission ID
+        if not submission_id or submission_id == "None":
+            print(f"Invalid submission ID: '{submission_id}'")
+            flash('Invalid submission ID. Please retry your submission.')
+            return redirect(url_for('home'))
+        
+        if submission_id not in review_results:
+            print(f"Submission ID not found in review_results dictionary: '{submission_id}'")
+            print(f"Available submission IDs: {list(review_results.keys())}")
             
-            # Get necessary metadata
-            paper_title = session.get('paper_title', 'Research_Paper')
-            upload_path = None
-            
-            # Try to find the original paper path
-            uploads_dir = app.config['UPLOAD_FOLDER']
-            for filename in os.listdir(uploads_dir):
-                if filename.startswith(submission_id):
-                    upload_path = os.path.join(uploads_dir, filename)
-                    print(f"Found original paper at: {upload_path}")
-                    break
-            
-            if not upload_path:
-                print("Original paper not found, attempting to download from Supabase")
-                # Try to download from Supabase if available
-                file_url = result_data.get('file_url')
-                if file_url:
-                    temp_file = f"{submission_id}_temp.pdf"
-                    upload_path = os.path.join(uploads_dir, temp_file)
-                    
-                    response = requests.get(file_url)
-                    if response.status_code == 200:
-                        with open(upload_path, 'wb') as f:
-                            f.write(response.content)
-                        print(f"Downloaded paper from Supabase to: {upload_path}")
-                    else:
-                        print(f"Failed to download paper from Supabase: {response.status_code}")
-            
-            # Generate PDFs for each reviewer
-            for reviewer_name, review in result_data['results'].items():
-                try:
-                    # Generate the review PDF from stored review text
-                    full_review = review.get('full_review', '')
-                    if full_review:
-                        print(f"Generating PDF for {reviewer_name}")
-                        result_filename = generate_review_pdf(full_review, reviewer_name, submission_id)
-                        review['filename'] = result_filename
-                        
-                        # Store the updated review in our global dictionary
-                        review_results[submission_id]['results'][reviewer_name] = review
-                except Exception as e:
-                    print(f"Error generating PDF for {reviewer_name}: {str(e)}")
-            
-            # Generate certificate if needed
-            all_accepted = result_data.get('all_accepted', False)
-            if all_accepted and paper_title:
-                try:
-                    print(f"Generating certificate for '{paper_title}'")
-                    certificate_filename = generate_certificate(paper_title, submission_id)
-                    review_results[submission_id]['certificate_filename'] = certificate_filename
-                except Exception as e:
-                    print(f"Error generating certificate: {str(e)}")
-            
-            # Mark PDFs as generated
-            review_results[submission_id]['needs_pdf_generation'] = False
-            print(f"PDF generation complete for submission '{submission_id}'")
-            
-        except Exception as e:
-            print(f"Error generating PDFs in request context: {str(e)}")
-            traceback.print_exc()
-    
-    # Save updated results to session for persistence across requests
-    session['review_results'] = result_data.get('results', {})
-    
-    # Render the results page with the saved results
-    print(f"Rendering results page for submission '{submission_id}'")
-    return render_template('results.html', 
-                          results=result_data.get('results', {}), 
-                          all_accepted=result_data.get('all_accepted', False),
-                          submission_id=submission_id,
-                          certificate_filename=result_data.get('certificate_filename'),
-                          processing=False)
+            # Try to recover from session data
+            file_url = session.get('upload_file_url')
+            if file_url:
+                print(f"Attempting to recover submission data from session. File URL: {file_url}")
+                # Initialize review results for this submission from the URL
+                review_results[submission_id] = {
+                    'results': {},
+                    'all_accepted': False,
+                    'processing_complete': False,
+                    'file_url': file_url
+                }
+                print(f"Created new entry in review_results for '{submission_id}' from session data")
+                
+                # Save the recovered data
+                save_review_results()
+            else:
+                print(f"Could not recover submission data. No file URL in session.")
+                flash('Review results not found. Please retry your submission.')
+                return redirect(url_for('home'))
+        
+        result_data = review_results[submission_id]
+        
+        if 'error' in result_data:
+            print(f"Error found for submission '{submission_id}': {result_data['error']}")
+            flash(f"Error in processing your document: {result_data['error']}")
+            return redirect(url_for('home'))
+        
+        if not result_data.get('processing_complete', False):
+            print(f"Processing not complete for submission '{submission_id}'")
+            flash('The review is still being processed. Please check back later.')
+            return redirect(url_for('home'))
+        
+        # If processing is complete, show the results
+        print(f"Successfully retrieved results for submission '{submission_id}'")
+        
+        # Check if we need to generate a PDF certificate
+        if result_data.get('all_accepted', False) and not result_data.get('certificate_filename'):
+            try:
+                print(f"Generating PDF certificate for submission '{submission_id}'")
+                
+                # Generate a PDF certificate
+                certificate_filename = generate_certificate(submission_id, result_data)
+                result_data['certificate_filename'] = certificate_filename
+                
+                # Save the updated review results with the certificate filename
+                save_review_results()
+                
+                print(f"Generated certificate: {certificate_filename}")
+            except Exception as e:
+                print(f"Error generating certificate: {str(e)}")
+                # Continue even if certificate generation fails
+                flash('Warning: Unable to generate certificate. Please contact support.')
+        
+        return render_template(
+            'review_results.html',
+            results=result_data.get('results', {}),
+            all_accepted=result_data.get('all_accepted', False),
+            certificate_filename=result_data.get('certificate_filename'),
+            submission_id=submission_id
+        )
+    except Exception as e:
+        error_message = f"Error viewing review results: {str(e)}"
+        print(error_message)
+        print(traceback.format_exc())
+        flash(error_message)
+        return redirect(url_for('home'))
 
 @app.route('/debug/submissions', methods=['GET'])
 def debug_submissions():
