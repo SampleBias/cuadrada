@@ -827,13 +827,34 @@
                             }
                         }
                         
-                        if (data.status === 'complete') {
+                        // CRITICAL FIX: Strong check for completion status
+                        let isComplete = data.status === 'complete';
+                        
+                        // Also check if results are populated - alternative way to detect completion
+                        let hasResults = false;
+                        if (data.results && Object.keys(data.results).length >= 3) {
+                            hasResults = true;
+                            console.log("Detected completion via populated results");
+                        }
+                        
+                        // Fallback detection - looking at older attempts
+                        if (!isComplete && pollingCount >= 12 && data.results) {
+                            console.log("Polling count threshold reached, checking result size");
+                            // If we have any results after a threshold of attempts, consider it complete
+                            if (Object.keys(data.results).length > 0) {
+                                console.log("Found results after threshold, forcing completion");
+                                isComplete = true;
+                            }
+                        }
+                        
+                        if (isComplete || hasResults) {
                             // Redirect to results page when processing is complete
                             console.log("Processing complete, redirecting to results page");
                             clearInterval(messageInterval);
                             clearTimeout(pollTimeout);
-                            // Force refresh the page instead of just changing URL
-                            window.location.reload();
+                            
+                            // Force a hard refresh to ensure we get fresh data
+                            window.location.href = `/view_review_results/${submissionId}?_=${new Date().getTime()}`;
                         } else if (data.status === 'error') {
                             // Show error message
                             console.error("Processing error:", data.message);

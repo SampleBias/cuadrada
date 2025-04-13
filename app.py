@@ -713,6 +713,16 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
         
         print(f"All reviews completed for submission '{submission_id}'. Updating global state.")
         
+        # CRITICAL FIX: Make sure we have the most up-to-date review_results
+        try:
+            # Load latest results from disk to avoid overwriting other changes
+            loaded_results = load_review_results()
+            if loaded_results:
+                # Update our global with the loaded data first
+                review_results = loaded_results
+        except Exception as e:
+            print(f"Error loading latest review results: {str(e)}")
+        
         # Check if entry exists, create it if needed
         if submission_id not in review_results:
             print(f"Review results entry missing, creating new one for '{submission_id}'")
@@ -728,13 +738,27 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
             'results': results,
             'all_accepted': all_accepted,
             'processing_complete': True,  # Mark as complete
-            'needs_pdf_generation': True  # Flag to generate PDFs later in a request context
+            'needs_pdf_generation': True,  # Flag to generate PDFs later in a request context
+            'file_url': upload_path  # Make sure we preserve the file URL
         }
         
         # Save to persistent storage
         print(f"Saving completed review results for '{submission_id}' to persistent storage")
         save_review_results()
         print(f"Review results saved. Current submission IDs: {list(review_results.keys())}")
+        
+        # EXTRA VERIFICATION - verify that the pickle file has the complete results
+        try:
+            verify_results = load_review_results()
+            if (verify_results and submission_id in verify_results and 
+                verify_results[submission_id].get('processing_complete', False)):
+                print(f"Verified pickle file has complete results for '{submission_id}'")
+            else:
+                print(f"WARNING: Verification failed for '{submission_id}' in pickle file")
+                # Let's try saving again to be sure
+                save_review_results()
+        except Exception as e:
+            print(f"Error verifying results: {str(e)}")
         
         # Log the review in the database
         if user_id:
@@ -757,7 +781,8 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
         # Store error information in the results
         review_results[submission_id] = {
             'error': str(e),
-            'processing_complete': True
+            'processing_complete': True,
+            'file_url': upload_path  # Preserve file URL
         }
         
         # Save to persistent storage even on error
@@ -1343,10 +1368,51 @@ def check_review_status(submission_id):
             'message': 'Invalid submission ID.'
         }), 400
     
+    # CRITICAL FIX: First check our pickle file directly to see if we have completed results
+    # This is more reliable than checking in-memory data that might be out of sync
+    try:
+        pickle_path = '/tmp/review_results.pickle'
+        if os.path.exists(pickle_path):
+            with open(pickle_path, 'rb') as f:
+                pickled_results = pickle.load(f)
+                if submission_id in pickled_results and pickled_results[submission_id].get('processing_complete', False):
+                    print(f"Found completed results for '{submission_id}' in pickle file")
+                    # Update in-memory results
+                    review_results = pickled_results
+                    return jsonify({
+                        'status': 'complete',
+                        'results': pickled_results[submission_id].get('results', {}),
+                        'all_accepted': pickled_results[submission_id].get('all_accepted', False),
+                        'certificate_filename': pickled_results[submission_id].get('certificate_filename')
+                    })
+    except Exception as e:
+        print(f"Error checking pickle file: {str(e)}")
+        # Continue with normal flow if pickle check fails
+    
     # Check if submission exists in our global results dictionary
     if submission_id not in review_results:
         print(f"Submission ID not found in review_results: '{submission_id}'")
         print(f"Available submission IDs: {list(review_results.keys())}")
+        
+        # Attempt to load the latest review results from disk
+        try:
+            loaded_results = load_review_results()
+            if loaded_results and submission_id in loaded_results:
+                review_results = loaded_results
+                print(f"Loaded review_results from disk, found '{submission_id}'")
+                result_data = review_results[submission_id]
+                
+                # If we found the submission and it's complete, return immediately
+                if result_data.get('processing_complete', False):
+                    print(f"Loaded data shows processing is complete for '{submission_id}'")
+                    return jsonify({
+                        'status': 'complete',
+                        'results': result_data.get('results', {}),
+                        'all_accepted': result_data.get('all_accepted', False),
+                        'certificate_filename': result_data.get('certificate_filename')
+                    })
+        except Exception as e:
+            print(f"Error loading review results from disk: {str(e)}")
         
         # If we have a file URL in the session, try to recover by initializing the review_results
         file_url = session.get('upload_file_url')
@@ -1424,6 +1490,37 @@ def view_review_results(submission_id):
             flash('Invalid submission ID. Please retry your submission.')
             return redirect(url_for('home'))
         
+        # CRITICAL FIX: First check our pickle file directly to see if we have completed results
+        # This ensures we're always using the most up-to-date data
+        pickle_path = '/tmp/review_results.pickle'
+        if os.path.exists(pickle_path):
+            try:
+                with open(pickle_path, 'rb') as f:
+                    pickled_results = pickle.load(f)
+                    if submission_id in pickled_results:
+                        print(f"Found results for '{submission_id}' in pickle file")
+                        # Update in-memory results
+                        review_results = pickled_results
+                        
+                        # If complete, show results
+                        result_data = pickled_results[submission_id]
+                        if result_data.get('processing_complete', False) or (result_data.get('results') and len(result_data.get('results', {})) >= 3):
+                            print(f"Pickle file shows processing is complete for '{submission_id}'")
+                            # Store review results in session for client-side access
+                            session['review_results'] = result_data.get('results', {})
+                            
+                            return render_template(
+                                'results.html',
+                                results=result_data.get('results', {}),
+                                all_accepted=result_data.get('all_accepted', False),
+                                certificate_filename=result_data.get('certificate_filename'),
+                                submission_id=submission_id,
+                                processing=False
+                            )
+            except Exception as e:
+                print(f"Error reading pickle file: {str(e)}")
+                # Continue with normal flow
+        
         if submission_id not in review_results:
             print(f"Submission ID not found in review_results dictionary: '{submission_id}'")
             print(f"Available submission IDs: {list(review_results.keys())}")
@@ -1473,6 +1570,7 @@ def view_review_results(submission_id):
         if not is_complete and has_results:
             result_data['processing_complete'] = True
             save_review_results()
+            print(f"Updated processing_complete flag for '{submission_id}'")
         
         # If processing is complete, show the results
         print(f"Successfully retrieved results for submission '{submission_id}'")
