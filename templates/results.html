@@ -646,7 +646,34 @@
     <script>
         // Show the loading spinner during processing
         document.addEventListener('DOMContentLoaded', function() {
-            const submissionId = '{{ submission_id }}';
+            // Get submission ID directly from the URL if possible, or use the one in the template
+            let submissionId = '{{ submission_id }}';
+            
+            // If submission ID is "None" or empty, try to get it from the URL
+            if (!submissionId || submissionId === "None") {
+                const urlMatch = window.location.pathname.match(/\/upload\/(.*)/);
+                if (urlMatch && urlMatch[1]) {
+                    submissionId = urlMatch[1];
+                } else {
+                    // If still no submission ID, check if it's in the session storage
+                    submissionId = sessionStorage.getItem('submissionId');
+                }
+            } else {
+                // Save submission ID to session storage for future use
+                sessionStorage.setItem('submissionId', submissionId);
+            }
+            
+            // If still no valid submission ID, show error and redirect
+            if (!submissionId || submissionId === "None") {
+                console.error("No valid submission ID found");
+                setTimeout(() => {
+                    window.location.href = "/";
+                }, 3000);
+                return;
+            }
+            
+            console.log("Using submission ID:", submissionId);
+            
             let pollingCount = 0;
             const processingMessages = [
                 "Analyzing paper structure and content...",
@@ -703,6 +730,7 @@
             // Function to poll for review status
             function pollReviewStatus() {
                 pollingCount++;
+                console.log(`Polling for status (attempt ${pollingCount}): /check_review_status/${submissionId}`);
                 
                 fetch(`/check_review_status/${submissionId}`)
                     .then(response => response.json())
