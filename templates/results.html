@@ -786,7 +786,7 @@
                             console.log("Processing complete, redirecting to results page");
                             clearInterval(messageInterval);
                             clearTimeout(pollTimeout);
-                            window.location.href = `/review_results/${submissionId}`;
+                            window.location.href = `/view_review_results/${submissionId}`;
                         } else if (data.status === 'error') {
                             // Show error message
                             console.error("Processing error:", data.message);
@@ -807,7 +807,7 @@
                                 <div class="error-icon">⏱️</div>
                                 <h3>Processing Taking Longer Than Expected</h3>
                                 <p>Your review is still processing. You can wait or return later to check the results.</p>
-                                <a href="/review_results/${submissionId}" class="retry-button">Check Again</a>
+                                <a href="/view_review_results/${submissionId}" class="retry-button">Check Again</a>
                                 <a href="/" class="retry-button" style="margin-left: 10px;">Return to Home</a>
                             `;
                         }

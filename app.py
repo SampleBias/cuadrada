@@ -621,6 +621,11 @@ def index():
     leaderboard = get_leaderboard_data()
     return render_template('index.html', leaderboard=leaderboard)
 
+@app.route('/home')
+def home():
+    """Shortcut to redirect to index"""
+    return redirect(url_for('index'))
+
 def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
     """Process reviews in the background"""
     global review_results
@@ -1354,8 +1359,8 @@ def view_review_results(submission_id):
     try:
         print(f"Viewing review results for submission ID: '{submission_id}'")
         
-        # Check login status
-        if 'user' not in session or not session['user']:
+        # Check login status - Fix for possible session structure
+        if not session.get('logged_in'):
             print("User not logged in, redirecting to login")
             flash('You need to be logged in to view review results.')
             return redirect(url_for('login'))
@@ -1413,8 +1418,11 @@ def view_review_results(submission_id):
             try:
                 print(f"Generating PDF certificate for submission '{submission_id}'")
                 
+                # Get paper title from session
+                paper_title = session.get('paper_title', 'Research Paper')
+                
                 # Generate a PDF certificate
-                certificate_filename = generate_certificate(submission_id, result_data)
+                certificate_filename = generate_certificate(paper_title, submission_id)
                 result_data['certificate_filename'] = certificate_filename
                 
                 # Save the updated review results with the certificate filename
@@ -1426,12 +1434,16 @@ def view_review_results(submission_id):
                 # Continue even if certificate generation fails
                 flash('Warning: Unable to generate certificate. Please contact support.')
         
+        # Store review results in session for client-side access
+        session['review_results'] = result_data.get('results', {})
+        
         return render_template(
-            'review_results.html',
+            'results.html',
             results=result_data.get('results', {}),
             all_accepted=result_data.get('all_accepted', False),
             certificate_filename=result_data.get('certificate_filename'),
-            submission_id=submission_id
+            submission_id=submission_id,
+            processing=False
         )
     except Exception as e:
         error_message = f"Error viewing review results: {str(e)}"
