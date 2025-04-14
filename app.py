@@ -35,6 +35,7 @@ import threading
 import queue
 import pickle
 import os.path
+import re
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -271,32 +272,27 @@ def is_valid_academic_paper(review_text):
     return academic_element_count >= 3 and has_citations
 
 def determine_paper_decision(review_text):
-    """Analyze review text and return decision and summary"""
-    # Check if it's a valid academic paper
-    if not is_valid_academic_paper(review_text):
-        return {
-            "decision": "REJECTED",
-            "summary": "REJECTED: The submitted document does not appear to be a proper academic paper. It lacks required academic structure and citations.",
-            "accepted": False
-        }
-    
-    # Determine decision based on content
-    decision = "REJECTED"  # Default
+    """Determine the decision and acceptance status from review text."""
+    # Check for known indicators of a good vs bad paper
     is_accepted = False
     
-    if "FINAL DECISION: **ACCEPTED**" in review_text:
+    # First check for explicit decision in text
+    if re.search(r'FINAL DECISION:\s*\*\*ACCEPTED\*\*', review_text, re.IGNORECASE):
         decision = "ACCEPTED"
         is_accepted = True
-    elif "FINAL DECISION: **ACCEPTED WITH MAJOR REVISION REQUIRED**" in review_text:
+    elif re.search(r'FINAL DECISION:\s*\*\*ACCEPTED WITH (MINOR|MAJOR) REVISION', review_text, re.IGNORECASE):
         decision = "REVISION"
-        summary = "MAJOR REVISION REQUIRED: " + (review_text.split('\n\n')[0] if '\n\n' in review_text else review_text)
-    elif "FINAL DECISION: **ACCEPTED WITH MINOR REVISION REQUIRED**" in review_text or "MINOR REVISIONS" in review_text.upper():
-        decision = "REVISION"
-        summary = "MINOR REVISION REQUIRED: " + (review_text.split('\n\n')[0] if '\n\n' in review_text else review_text)
-    elif "ACCEPT" in review_text.upper() and not any(x in review_text.upper() for x in ["NOT ACCEPT", "MAJOR REVISION", "MINOR REVISION"]):
+        is_accepted = False
+    elif re.search(r'FINAL DECISION:\s*\*\*REJECTED\*\*', review_text, re.IGNORECASE):
+        decision = "REJECTED"
+        is_accepted = False
+    # If no explicit decision, determine based on content and keywords
+    elif ("accepted" in review_text.lower() and not "rejected" in review_text.lower()) or ("recommend publication" in review_text.lower()):
         decision = "ACCEPTED"
         is_accepted = True
-    elif "REJECT" in review_text.upper() or "FINAL DECISION: **REJECTED**" in review_text:
+    elif "revision" in review_text.lower() or "revise" in review_text.lower() or "improvements needed" in review_text.lower():
+        decision = "REVISION"
+    elif "reject" in review_text.lower():
         decision = "REJECTED"
     else:
         decision = "REVISION"
@@ -655,63 +651,33 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
     try:
         print(f"Starting review processing for '{submission_id}'")
         
-        # Process all three reviewers
+        # Process all reviewers in a list to track their decisions
+        reviewers_to_process = ["Reviewer 1", "Reviewer 2", "Reviewer 3"]
         results = {}
-        all_accepted = True
+        all_accepted = True  # Start with True, will set to False if any reviewer doesn't accept
         
-        # Process Reviewer 1 - start with default model (sonnet)
-        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
-        reviewer_name = "Reviewer 1"
-        print(f"Processing {reviewer_name} for submission '{submission_id}'")
-        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
-        
-        # Don't generate PDF in background thread (causes Flask context issues)
-        # Just store the review results
-        results[reviewer_name] = {
-            'decision': result.get('decision', 'ERROR'),
-            'summary': result.get('summary', 'Error generating review'),
-            'full_review': result.get('full_review', 'Error generating review'),
-            'model_used': result.get('model_used', 'unknown'),
-            'model_downgraded': result.get('model_downgraded', False)
-        }
-        all_accepted = all_accepted and result.get('accepted', False)
-        print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
-        
-        # Process Reviewer 2 - also use default model
-        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
-        reviewer_name = "Reviewer 2"
-        print(f"Processing {reviewer_name} for submission '{submission_id}'")
-        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
-        
-        # Store results without PDF generation
-        results[reviewer_name] = {
-            'decision': result.get('decision', 'ERROR'),
-            'summary': result.get('summary', 'Error generating review'),
-            'full_review': result.get('full_review', 'Error generating review'),
-            'model_used': result.get('model_used', 'unknown'),
-            'model_downgraded': result.get('model_downgraded', False)
-        }
-        all_accepted = all_accepted and result.get('accepted', False)
-        print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
-        
-        # Process Reviewer 3 - also use default model
-        agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
-        reviewer_name = "Reviewer 3"
-        print(f"Processing {reviewer_name} for submission '{submission_id}'")
-        result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
-        
-        # Store results without PDF generation
-        results[reviewer_name] = {
-            'decision': result.get('decision', 'ERROR'),
-            'summary': result.get('summary', 'Error generating review'),
-            'full_review': result.get('full_review', 'Error generating review'),
-            'model_used': result.get('model_used', 'unknown'),
-            'model_downgraded': result.get('model_downgraded', False)
-        }
-        all_accepted = all_accepted and result.get('accepted', False)
-        print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
+        for reviewer_name in reviewers_to_process:
+            agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
+            print(f"Processing {reviewer_name} for submission '{submission_id}'")
+            result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
+            
+            # Store review results
+            results[reviewer_name] = {
+                'decision': result.get('decision', 'ERROR'),
+                'summary': result.get('summary', 'Error generating review'),
+                'full_review': result.get('full_review', 'Error generating review'),
+                'model_used': result.get('model_used', 'unknown'),
+                'model_downgraded': result.get('model_downgraded', False)
+            }
+            
+            # Track if all reviewers have accepted the paper
+            if result.get('decision') != 'ACCEPTED':
+                all_accepted = False
+                
+            print(f"Completed {reviewer_name} with decision: {result.get('decision', 'ERROR')}")
         
         print(f"All reviews completed for submission '{submission_id}'. Updating global state.")
+        print(f"All accepted: {all_accepted}")
         
         # CRITICAL FIX: Make sure we have the most up-to-date review_results
         try:
@@ -736,7 +702,7 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
         # Store the results in the global dictionary (without generating PDFs)
         review_results[submission_id] = {
             'results': results,
-            'all_accepted': all_accepted,
+            'all_accepted': all_accepted,  # Set based on our computation above
             'processing_complete': True,  # Mark as complete
             'needs_pdf_generation': True,  # Flag to generate PDFs later in a request context
             'file_url': upload_path  # Make sure we preserve the file URL
@@ -1383,6 +1349,7 @@ def check_review_status(submission_id):
                         'status': 'complete',
                         'results': pickled_results[submission_id].get('results', {}),
                         'all_accepted': pickled_results[submission_id].get('all_accepted', False),
+                        'has_accepted': pickled_results[submission_id].get('has_accepted', False),
                         'certificate_filename': pickled_results[submission_id].get('certificate_filename')
                     })
     except Exception as e:
@@ -1409,6 +1376,7 @@ def check_review_status(submission_id):
                         'status': 'complete',
                         'results': result_data.get('results', {}),
                         'all_accepted': result_data.get('all_accepted', False),
+                        'has_accepted': result_data.get('has_accepted', False),
                         'certificate_filename': result_data.get('certificate_filename')
                     })
         except Exception as e:
@@ -1422,6 +1390,7 @@ def check_review_status(submission_id):
             review_results[submission_id] = {
                 'results': {},
                 'all_accepted': False,
+                'has_accepted': False,
                 'processing_complete': False,
                 'file_url': file_url
             }
@@ -1464,6 +1433,7 @@ def check_review_status(submission_id):
         'status': 'complete',
         'results': result_data.get('results', {}),
         'all_accepted': result_data.get('all_accepted', False),
+        'has_accepted': result_data.get('has_accepted', False),
         'certificate_filename': result_data.get('certificate_filename')
     })
 
@@ -1513,6 +1483,7 @@ def view_review_results(submission_id):
                                 'results.html',
                                 results=result_data.get('results', {}),
                                 all_accepted=result_data.get('all_accepted', False),
+                                has_accepted=result_data.get('has_accepted', False),
                                 certificate_filename=result_data.get('certificate_filename'),
                                 submission_id=submission_id,
                                 processing=False
@@ -1533,6 +1504,7 @@ def view_review_results(submission_id):
                 review_results[submission_id] = {
                     'results': {},
                     'all_accepted': False,
+                    'has_accepted': False,
                     'processing_complete': False,
                     'file_url': file_url
                 }
@@ -1576,7 +1548,13 @@ def view_review_results(submission_id):
         print(f"Successfully retrieved results for submission '{submission_id}'")
         
         # Check if we need to generate a PDF certificate
-        if result_data.get('all_accepted', False) and not result_data.get('certificate_filename'):
+        all_accepted = True
+        for reviewer, review_data in result_data.get('results', {}).items():
+            if review_data.get('decision') != 'ACCEPTED':
+                all_accepted = False
+                break
+                
+        if all_accepted and not result_data.get('certificate_filename'):
             try:
                 print(f"Generating PDF certificate for submission '{submission_id}'")
                 
@@ -1603,6 +1581,7 @@ def view_review_results(submission_id):
             'results.html',
             results=result_data.get('results', {}),
             all_accepted=result_data.get('all_accepted', False),
+            has_accepted=result_data.get('has_accepted', False),
             certificate_filename=result_data.get('certificate_filename'),
             submission_id=submission_id,
             processing=False
@@ -1628,6 +1607,7 @@ def debug_submissions():
         submissions_data[submission_id] = {
             'processing_complete': data.get('processing_complete', False),
             'has_error': 'error' in data,
+            'has_accepted': data.get('has_accepted', False),
             'needs_pdf_generation': data.get('needs_pdf_generation', False),
             'all_accepted': data.get('all_accepted', False),
             'reviewer_count': len(data.get('results', {}))

@@ -465,12 +465,14 @@
         {% set all_rejected = true %}
         {% set needs_revision = false %}
         {% set has_error = false %}
+        {% set has_accepted = false %}
         {% set submission_id = None %}
 
         {% for agent, data in results.items() %}
             {% if agent != 'certificate_filename' and data is mapping %}
                 {% if data.decision == 'ACCEPTED' %}
                     {% set all_rejected = false %}
+                    {% set has_accepted = true %}
                 {% endif %}
                 {% if data.decision == 'REVISION' %}
                     {% set all_rejected = false %}
@@ -569,19 +571,73 @@
             {% endif %}
         {% endfor %}
 
-        {% if all_accepted and certificate_filename %}
+        {% if has_accepted and certificate_filename %}
         <div class="certificate-section show">
             <svg class="certificate-icon" viewBox="0 0 24 24">
                 <path fill="#4CAF50" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
             </svg>
             <h2>🎉 Congratulations!</h2>
-            <p>Your paper has been accepted by all reviewers. You can now download your official acceptance certificate.</p>
+            <p>Your paper has been accepted by our reviewers. You can now download your official acceptance certificate.</p>
             {{ download_button(certificate_filename, 
                              "Download Acceptance Certificate", 
                              "certificate-button") }}
         </div>
         {% endif %}
 
+        <!-- Debug info for certificate -->
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Certificate debug info:");
+            console.log("Certificate filename: {{ certificate_filename }}");
+            console.log("Has accepted reviews: {{ has_accepted }}");
+            console.log("All reviews accepted: {{ all_accepted }}");
+            
+            // Count accepted reviews
+            let totalReviews = 0;
+            let acceptedReviews = 0;
+            
+            {% for agent, data in results.items() %}
+                {% if agent != 'certificate_filename' and data is mapping %}
+                    console.log("{{ agent }} decision: {{ data.decision }}");
+                    totalReviews++;
+                    if ("{{ data.decision }}" === "ACCEPTED") {
+                        acceptedReviews++;
+                    }
+                {% endif %}
+            {% endfor %}
+            
+            console.log(`Total reviews: ${totalReviews}, Accepted: ${acceptedReviews}`);
+            
+            // Check if certificate should be shown - all reviews must be accepted
+            const allAccepted = (totalReviews > 0 && totalReviews === acceptedReviews);
+            console.log("All reviews accepted:", allAccepted);
+            
+            // Find certificate section
+            const certificateSection = document.querySelector('.certificate-section');
+            if (certificateSection) {
+                console.log("Certificate section found in DOM");
+                
+                // Only show if all reviews are accepted and there's a certificate filename
+                const hasCertificate = "{{ certificate_filename }}" !== "";
+                if (allAccepted && hasCertificate) {
+                    console.log("Showing certificate section");
+                    certificateSection.classList.add('show');
+                    
+                    // Update message to clarify all reviews accepted
+                    const certMessage = certificateSection.querySelector('p');
+                    if (certMessage) {
+                        certMessage.textContent = "Your paper has been accepted by all reviewers. You can now download your official acceptance certificate.";
+                    }
+                } else {
+                    console.log("Hiding certificate section - all accepted:", allAccepted, "has certificate:", hasCertificate);
+                    certificateSection.classList.remove('show');
+                }
+            } else {
+                console.log("Certificate section NOT found in DOM");
+            }
+        });
+        </script>
+        
         <a href="{{ url_for('index') }}" class="back-link">← Back to Upload</a>
 
         <footer class="footer">
