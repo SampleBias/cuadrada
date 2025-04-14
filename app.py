@@ -1565,6 +1565,9 @@ def view_review_results(submission_id):
                 certificate_filename = generate_certificate(paper_title, submission_id)
                 result_data['certificate_filename'] = certificate_filename
                 
+                # Save to session for immediate access
+                session['certificate_filename'] = certificate_filename
+                
                 # Save the updated review results with the certificate filename
                 save_review_results()
                 
@@ -1691,6 +1694,96 @@ def handle_exception(e):
         
     # Redirect to index or an error page
     return redirect(url_for('index'))
+
+@app.route('/direct_certificate/<submission_id>')
+def direct_certificate(submission_id):
+    """Direct link to generate and download a certificate"""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+        
+    try:
+        # Check if we have results for this submission
+        if submission_id not in review_results:
+            # Try to load latest results
+            loaded_results = load_review_results()
+            if loaded_results:
+                review_results.update(loaded_results)
+                
+            if submission_id not in review_results:
+                flash('Review not found.')
+                return redirect(url_for('index'))
+        
+        result_data = review_results[submission_id]
+        
+        # Force generation of certificate if all reviews are accepted
+        all_accepted = True
+        for reviewer, review_data in result_data.get('results', {}).items():
+            if review_data.get('decision') != 'ACCEPTED':
+                all_accepted = False
+                break
+        
+        if not all_accepted:
+            flash('Certificate is only available when all reviewers accept your paper.')
+            return redirect(url_for('view_review_results', submission_id=submission_id))
+        
+        # Get or generate certificate
+        certificate_filename = result_data.get('certificate_filename')
+        if not certificate_filename:
+            # Get paper title
+            paper_title = session.get('paper_title', 'Research Paper')
+            
+            # Generate certificate
+            try:
+                certificate_filename = generate_certificate(paper_title, submission_id)
+                result_data['certificate_filename'] = certificate_filename
+                session['certificate_filename'] = certificate_filename
+                save_review_results()
+            except Exception as e:
+                print(f"Error generating certificate directly: {str(e)}")
+                flash('Error generating certificate. Please contact support.')
+                return redirect(url_for('view_review_results', submission_id=submission_id))
+        
+        # Check if certificate file exists locally
+        certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
+        if not os.path.exists(certificate_path):
+            # Try to download from storage
+            certificate_url = session.get('certificate_url')
+            if certificate_url:
+                try:
+                    # Download to local path
+                    response = requests.get(certificate_url)
+                    if response.status_code == 200:
+                        with open(certificate_path, 'wb') as f:
+                            f.write(response.content)
+                    else:
+                        raise Exception(f"Failed to download certificate from storage: {response.status_code}")
+                except Exception as e:
+                    print(f"Error retrieving certificate from storage: {str(e)}")
+                    # Try regenerating
+                    certificate_filename = generate_certificate(paper_title, submission_id)
+                    certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
+            else:
+                # Regenerate certificate
+                paper_title = session.get('paper_title', 'Research Paper')
+                certificate_filename = generate_certificate(paper_title, submission_id)
+                certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
+        
+        # Create user-friendly filename
+        paper_title = session.get('paper_title', 'Research_Paper')
+        download_name = get_file_download_name(certificate_filename, paper_title)
+        
+        # Serve the file
+        return send_file(
+            certificate_path,
+            as_attachment=True,
+            download_name=download_name
+        )
+        
+    except Exception as e:
+        print(f"Error in direct certificate download: {str(e)}")
+        traceback.print_exc()
+        flash('Error downloading certificate. Please contact support.')
+        return redirect(url_for('index'))
 
 if __name__ == '__main__':
     # Get port from environment variable (for Heroku compatibility)

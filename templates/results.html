@@ -581,6 +581,32 @@
             {{ download_button(certificate_filename, 
                              "Download Acceptance Certificate", 
                              "certificate-button") }}
+                             
+            <!-- Alternative direct download link -->
+            <div style="margin-top: 15px;">
+                <a href="{{ url_for('direct_certificate', submission_id=submission_id) }}" class="certificate-button">
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    Download Certificate (Alternative)
+                </a>
+            </div>
+        </div>
+        {% elif all_accepted %}
+        <!-- Fallback certificate section when certificate_filename is missing -->
+        <div class="certificate-section show">
+            <svg class="certificate-icon" viewBox="0 0 24 24">
+                <path fill="#4CAF50" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
+            </svg>
+            <h2>🎉 Congratulations!</h2>
+            <p>Your paper has been accepted by all reviewers. Use the button below to generate and download your certificate.</p>
+            <!-- Direct generation and download button -->
+            <a href="{{ url_for('direct_certificate', submission_id=submission_id) }}" class="certificate-button">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                Generate and Download Certificate
+            </a>
         </div>
         {% endif %}
 
