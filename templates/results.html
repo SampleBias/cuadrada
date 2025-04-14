@@ -584,7 +584,7 @@
                              
             <!-- Alternative direct download link -->
             <div style="margin-top: 15px;">
-                <a href="{{ url_for('direct_certificate', submission_id=submission_id) }}" class="certificate-button">
+                <a href="{{ url_for('certificate_download') }}" class="certificate-button">
                     <svg width="16" height="16" viewBox="0 0 24 24">
                         <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                     </svg>
@@ -601,7 +601,7 @@
             <h2>🎉 Congratulations!</h2>
             <p>Your paper has been accepted by all reviewers. Use the button below to generate and download your certificate.</p>
             <!-- Direct generation and download button -->
-            <a href="{{ url_for('direct_certificate', submission_id=submission_id) }}" class="certificate-button">
+            <a href="{{ url_for('certificate_download') }}" class="certificate-button">
                 <svg width="16" height="16" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                 </svg>

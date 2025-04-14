@@ -1479,6 +1479,9 @@ def view_review_results(submission_id):
                             # Store review results in session for client-side access
                             session['review_results'] = result_data.get('results', {})
                             
+                            # Store the submission ID in the session
+                            session['submission_id'] = submission_id
+                            
                             return render_template(
                                 'results.html',
                                 results=result_data.get('results', {}),
@@ -1546,6 +1549,9 @@ def view_review_results(submission_id):
         
         # If processing is complete, show the results
         print(f"Successfully retrieved results for submission '{submission_id}'")
+        
+        # Store the submission ID in the session
+        session['submission_id'] = submission_id
         
         # Check if we need to generate a PDF certificate
         all_accepted = True
@@ -1695,13 +1701,19 @@ def handle_exception(e):
     # Redirect to index or an error page
     return redirect(url_for('index'))
 
-@app.route('/direct_certificate/<submission_id>')
-def direct_certificate(submission_id):
-    """Direct link to generate and download a certificate"""
+@app.route('/certificate_download')
+def certificate_download():
+    """Simple route to generate and download certificate for the most recent submission"""
     if not session.get('logged_in'):
         return redirect(url_for('login'))
         
     try:
+        # Get submission ID from session
+        submission_id = session.get('submission_id')
+        if not submission_id:
+            flash('No active submission found.')
+            return redirect(url_for('index'))
+            
         # Check if we have results for this submission
         if submission_id not in review_results:
             # Try to load latest results
@@ -1724,7 +1736,7 @@ def direct_certificate(submission_id):
         
         if not all_accepted:
             flash('Certificate is only available when all reviewers accept your paper.')
-            return redirect(url_for('view_review_results', submission_id=submission_id))
+            return redirect(url_for('index'))
         
         # Get or generate certificate
         certificate_filename = result_data.get('certificate_filename')
@@ -1741,10 +1753,12 @@ def direct_certificate(submission_id):
             except Exception as e:
                 print(f"Error generating certificate directly: {str(e)}")
                 flash('Error generating certificate. Please contact support.')
-                return redirect(url_for('view_review_results', submission_id=submission_id))
+                return redirect(url_for('index'))
         
         # Check if certificate file exists locally
         certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
+        
+        # If file doesn't exist locally, try to download or regenerate it
         if not os.path.exists(certificate_path):
             # Try to download from storage
             certificate_url = session.get('certificate_url')
@@ -1756,14 +1770,17 @@ def direct_certificate(submission_id):
                         with open(certificate_path, 'wb') as f:
                             f.write(response.content)
                     else:
-                        raise Exception(f"Failed to download certificate from storage: {response.status_code}")
+                        # If download fails, regenerate
+                        paper_title = session.get('paper_title', 'Research Paper')
+                        certificate_filename = generate_certificate(paper_title, submission_id)
+                        certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
                 except Exception as e:
-                    print(f"Error retrieving certificate from storage: {str(e)}")
-                    # Try regenerating
+                    # If error, regenerate
+                    paper_title = session.get('paper_title', 'Research Paper')
                     certificate_filename = generate_certificate(paper_title, submission_id)
                     certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
             else:
-                # Regenerate certificate
+                # No URL, regenerate
                 paper_title = session.get('paper_title', 'Research Paper')
                 certificate_filename = generate_certificate(paper_title, submission_id)
                 certificate_path = os.path.join(app.config['RESULTS_FOLDER'], certificate_filename)
