@@ -1460,6 +1460,13 @@ def view_review_results(submission_id):
             flash('Invalid submission ID. Please retry your submission.')
             return redirect(url_for('home'))
         
+        # Store the submission ID in the session for use in other routes
+        session['submission_id'] = submission_id
+            
+        # CRITICAL FIX: Check if we need to show the processing state
+        # Determine processing state early to ensure consistent display
+        is_processing = True  # Default to processing view
+            
         # CRITICAL FIX: First check our pickle file directly to see if we have completed results
         # This ensures we're always using the most up-to-date data
         pickle_path = '/tmp/review_results.pickle'
@@ -1476,11 +1483,10 @@ def view_review_results(submission_id):
                         result_data = pickled_results[submission_id]
                         if result_data.get('processing_complete', False) or (result_data.get('results') and len(result_data.get('results', {})) >= 3):
                             print(f"Pickle file shows processing is complete for '{submission_id}'")
+                            # Processing is complete
+                            is_processing = False
                             # Store review results in session for client-side access
                             session['review_results'] = result_data.get('results', {})
-                            
-                            # Store the submission ID in the session
-                            session['submission_id'] = submission_id
                             
                             return render_template(
                                 'results.html',
@@ -1489,7 +1495,7 @@ def view_review_results(submission_id):
                                 has_accepted=result_data.get('has_accepted', False),
                                 certificate_filename=result_data.get('certificate_filename'),
                                 submission_id=submission_id,
-                                processing=False
+                                processing=is_processing  # Pass the correct processing state
                             )
             except Exception as e:
                 print(f"Error reading pickle file: {str(e)}")
@@ -1515,6 +1521,9 @@ def view_review_results(submission_id):
                 
                 # Save the recovered data
                 save_review_results()
+                
+                # If we had to create new entry, it's definitely still processing
+                is_processing = True
             else:
                 print(f"Could not recover submission data. No file URL in session.")
                 flash('Review results not found. Please retry your submission.')
@@ -1531,14 +1540,17 @@ def view_review_results(submission_id):
         is_complete = result_data.get('processing_complete', False)
         has_results = bool(result_data.get('results')) and len(result_data.get('results', {})) >= 3
         
-        if not (is_complete or has_results):
+        # Update the processing state based on our checks
+        is_processing = not (is_complete or has_results)
+        
+        if is_processing:
             print(f"Processing not complete for submission '{submission_id}'")
-            # Show processing page instead of redirecting
+            # Show processing page
             return render_template(
                 'results.html',
                 results={},
                 submission_id=submission_id,
-                processing=True
+                processing=True  # Explicitly set processing to True
             )
         
         # If we reach here, processing is complete - make sure flag is set for future checks
@@ -1549,9 +1561,6 @@ def view_review_results(submission_id):
         
         # If processing is complete, show the results
         print(f"Successfully retrieved results for submission '{submission_id}'")
-        
-        # Store the submission ID in the session
-        session['submission_id'] = submission_id
         
         # Check if we need to generate a PDF certificate
         all_accepted = True
@@ -1593,7 +1602,7 @@ def view_review_results(submission_id):
             has_accepted=result_data.get('has_accepted', False),
             certificate_filename=result_data.get('certificate_filename'),
             submission_id=submission_id,
-            processing=False
+            processing=False  # Explicitly set processing to False when showing results
         )
     except Exception as e:
         error_message = f"Error viewing review results: {str(e)}"
