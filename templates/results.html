@@ -571,13 +571,13 @@
             {% endif %}
         {% endfor %}
 
-        {% if has_accepted and certificate_filename %}
+        {% if all_accepted and certificate_filename %}
         <div class="certificate-section show">
             <svg class="certificate-icon" viewBox="0 0 24 24">
                 <path fill="#4CAF50" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
             </svg>
             <h2>🎉 Congratulations!</h2>
-            <p>Your paper has been accepted by our reviewers. You can now download your official acceptance certificate.</p>
+            <p>Your paper has been accepted by all reviewers. You can now download your official acceptance certificate.</p>
             {{ download_button(certificate_filename, 
                              "Download Acceptance Certificate", 
                              "certificate-button") }}
