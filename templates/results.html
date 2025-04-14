@@ -408,22 +408,24 @@
         /* Loading animation */
         .loading-container {
             text-align: center;
-            padding: 40px;
-            margin: 20px 0;
+            padding: 60px;
+            margin: 40px 0;
             border-radius: 12px;
             background: rgba(128, 0, 128, 0.05);
-            border: 1px solid rgba(128, 0, 128, 0.1);
+            border: 1px solid rgba(128, 0, 128, 0.2);
+            box-shadow: 0 0 20px rgba(128, 0, 128, 0.1);
+            animation: fadeIn 0.5s ease-in;
         }
         
         .loading-spinner {
             display: inline-block;
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(128, 0, 128, 0.1);
+            width: 80px;
+            height: 80px;
+            border: 6px solid rgba(128, 0, 128, 0.1);
             border-radius: 50%;
             border-top-color: var(--accent);
             animation: spin 1s ease-in-out infinite;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         
         @keyframes spin {
@@ -431,13 +433,14 @@
         }
         
         #processingMessage {
-            font-size: 16px;
-            margin-bottom: 10px;
+            font-size: 22px;
+            margin-bottom: 15px;
+            color: var(--accent);
         }
         
         #processingDetails {
-            font-size: 14px;
-            color: rgba(224, 224, 224, 0.7);
+            font-size: 16px;
+            color: rgba(224, 224, 224, 0.8);
         }
     </style>
 </head>
@@ -498,6 +501,10 @@
         </div>
         {% endif %}
 
+        {% if processing %}
+        <!-- Loading animation will be inserted via JavaScript -->
+        {% else %}
+        <!-- Only show outcome message when not in processing mode -->
         <div class="outcome-message {% if all_rejected and not has_error %}rejected{% elif needs_revision and not has_error %}revision{% elif not all_rejected and not needs_revision and not has_error %}accepted{% endif %}">
             {% if has_error %}
                 <div class="outcome-icon">🔄</div>
@@ -524,6 +531,7 @@
                    If you love what you are doing, you will be successful." - Albert Schweitzer</div>
             {% endif %}
         </div>
+        {% endif %}
 
         {% for agent, data in results.items() %}
             {% if agent != 'certificate_filename' and data is mapping %}
@@ -828,8 +836,26 @@
                 <p id="processingDetails">This may take a few minutes...</p>
             `;
             
-            // Insert loading container before any existing content
-            mainContent.insertBefore(loadingContainer, mainContent.firstChild);
+            // Clear the container and add only the loading animation
+            // Keep header and footer
+            const header = mainContent.querySelector('.header-container');
+            const footer = mainContent.querySelector('.footer');
+            const backLink = mainContent.querySelector('.back-link');
+            
+            // Store original content
+            const originalContent = Array.from(mainContent.children).filter(el => 
+                el !== header && el !== footer && el !== backLink
+            );
+            
+            // Remove all content except header and footer
+            originalContent.forEach(el => el.remove());
+            
+            // Insert loading container after header
+            if (header) {
+                header.after(loadingContainer);
+            } else {
+                mainContent.prepend(loadingContainer);
+            }
             
             // Function to update processing message randomly
             function updateProcessingMessage() {
