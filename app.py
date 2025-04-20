@@ -329,6 +329,15 @@ def generate_certificate(paper_title, submission_id):
         c.setFont("Helvetica-Bold", 30)
         c.drawCentredString(width/2, height-2*inch, "Certificate of Acceptance")
         
+        # Add branded square logo to top right
+        square_size = 0.75*inch
+        square_margin = 0.75*inch
+        # Draw square outline
+        c.setStrokeColorRGB(0.5, 0, 0.5)  # Purple to match branding (#800080)
+        c.setLineWidth(5)
+        c.rect(width-square_margin-square_size, height-square_margin-square_size, 
+               square_size, square_size, fill=0)
+        
         # Add content with error handling for long titles
         try:
             # Title wrapping with max width check
