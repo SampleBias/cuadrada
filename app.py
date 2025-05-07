@@ -608,7 +608,7 @@ def callback():
                 'user_id': user_id,
                 'plan_type': 'free',
                 'status': 'active',
-                'max_reviews': 5,  # Default limit for free tier
+                'max_reviews': 1,  # Only 1 free review allowed
                 'current_period_start': datetime.now().isoformat(),
                 'current_period_end': (datetime.now() + timedelta(days=30)).isoformat()
             }

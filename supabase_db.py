@@ -294,47 +294,32 @@ def check_subscription_limit(user_id):
     # If no user_id is provided, allow the review (for anonymous users)
     if not user_id:
         return True
-        
-    # Set up retry parameters
+    
     max_retries = 3
     retry_delay = 1  # Initial delay in seconds
     
     for attempt in range(max_retries):
         try:
-            # Get user's subscription
             subscription = get_subscription(user_id)
             if not subscription:
-                # No subscription found, use default limit
-                return True
-                
-            # Check if subscription is active
+                # No subscription found, allow only 1 free review
+                reviews = get_user_reviews(user_id)
+                return len(reviews) < 1
+            
             if subscription.get('status') != 'active':
                 return False
-                
-            # Check for unlimited plan
-            if subscription.get('plan_type') == 'unlimited':
-                return True
-                
-            # Check usage against limit
-            max_reviews = subscription.get('max_reviews', 0)
-            if max_reviews <= 0:  # No limit or invalid value
-                return True
-                
-            # Count reviews in current period
-            current_period_start = subscription.get('current_period_start')
-            current_period_end = subscription.get('current_period_end')
             
-            if not current_period_start or not current_period_end:
+            plan_type = subscription.get('plan_type', 'free')
+            if plan_type == 'unlimited':
                 return True
-                
-            reviews = get_user_reviews(user_id)
-            reviews_in_period = [
-                r for r in reviews 
-                if r.get('created_at') and current_period_start <= r.get('created_at') <= current_period_end
-            ]
-            
-            return len(reviews_in_period) < max_reviews
-            
+            elif plan_type == 'premium':
+                # Premium plan: allow many reviews (set a high number or unlimited)
+                return True
+            else:
+                # Free plan: only 1 review allowed
+                reviews = get_user_reviews(user_id)
+                return len(reviews) < 1
+        
         except Exception as e:
             if 'rate limit' in str(e).lower() and attempt < max_retries - 1:
                 print(f"Rate limit hit when checking subscription. Retrying in {retry_delay} seconds... (Attempt {attempt+1}/{max_retries})")
@@ -342,10 +327,7 @@ def check_subscription_limit(user_id):
                 retry_delay *= 2  # Exponential backoff
             else:
                 print(f"Error checking subscription limit: {str(e)}")
-                # Default to allowing reviews if there's an error
                 return True
-    
-    # If we've exhausted retries due to rate limits
     print("Exhausted retries when checking subscription limits.")
     return True  # Allow the review as a fallback
 

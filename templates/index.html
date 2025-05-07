@@ -940,7 +940,7 @@
                 <div class="error-icon">⚠️</div>
                 <div class="error-title">Review Limit Reached</div>
                 <div class="error-message" id="errorMessage">
-                    You've reached the maximum number of reviews allowed for your current plan.
+                    You have used your 1 free review. To continue, please <a href="https://buy.stripe.com/7sIaH76b6cJk2R214g" target="_blank" style="color:#b980ff;text-decoration:underline;">upgrade to the Premium Plan for $19.99</a>.
                 </div>
                 <button class="error-close-button" id="errorCloseButton">Close</button>
             </div>
@@ -1032,7 +1032,7 @@
                     
                     // Show error message
                     if (error.message.includes('Review limit reached')) {
-                        errorMessage.textContent = 'You have reached the review limit for your current plan. Please upgrade your subscription to continue using our service.';
+                        errorMessage.innerHTML = 'You have used your 1 free review. To continue, please <a href="https://buy.stripe.com/7sIaH76b6cJk2R214g" target="_blank" style="color:#b980ff;text-decoration:underline;">upgrade to the Premium Plan for $19.99</a>.';
                     } else if (error.message.includes('rate limit') || error.message.includes('Rate limit')) {
                         errorMessage.textContent = 'Our AI review system is currently experiencing high demand. Please wait a minute and try again.';
                     } else {
