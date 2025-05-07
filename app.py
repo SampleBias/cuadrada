@@ -271,11 +271,32 @@ def is_valid_academic_paper(review_text):
     # Only consider it an academic paper if it has enough academic elements and citations
     return academic_element_count >= 3 and has_citations
 
+def parse_criteria_scores(review_text):
+    """Parse the review text for individual criteria scores. Returns a dict of {criterion: score}."""
+    import re
+    # Define the criteria and their weights
+    criteria = {
+        'Methodology': 0.20,
+        'Novelty': 0.20,
+        'Technical Depth': 0.15,
+        'Clarity': 0.15,
+        'Literature Review': 0.15,
+        'Impact': 0.15
+    }
+    scores = {}
+    for criterion in criteria:
+        # Look for lines like "Methodology: 85%" or "Methodology (20%): 85%"
+        match = re.search(rf'{criterion}[^\d]{{0,20}}(\d{{1,3}})%', review_text, re.IGNORECASE)
+        if match:
+            score = int(match.group(1))
+            scores[criterion] = score
+    return scores
+
 def determine_paper_decision(review_text):
-    """Determine the decision and acceptance status from review text."""
+    """Determine the decision and acceptance status from review text. Applies strength bonus if eligible."""
     # Check for known indicators of a good vs bad paper
     is_accepted = False
-    
+    final_score = None
     # First check for explicit decision in text
     if re.search(r'FINAL DECISION:\s*\*\*ACCEPTED\*\*', review_text, re.IGNORECASE):
         decision = "ACCEPTED"
@@ -296,22 +317,44 @@ def determine_paper_decision(review_text):
         decision = "REJECTED"
     else:
         decision = "REVISION"
-    
+
+    # Parse criteria scores and calculate weighted score
+    criteria_weights = {
+        'Methodology': 0.20,
+        'Novelty': 0.20,
+        'Technical Depth': 0.15,
+        'Clarity': 0.15,
+        'Literature Review': 0.15,
+        'Impact': 0.15
+    }
+    scores = parse_criteria_scores(review_text)
+    if scores:
+        weighted_score = sum(scores.get(crit, 0) * weight for crit, weight in criteria_weights.items())
+        # Check for strength bonus: any two criteria >80%
+        strong_criteria = [crit for crit, score in scores.items() if score > 80]
+        if len(strong_criteria) >= 2:
+            weighted_score = min(weighted_score * 1.05, 100)  # Cap at 100%
+        final_score = round(weighted_score, 2)
+    else:
+        final_score = None
+
     # Make sure summary is defined
     if 'summary' not in locals():
         summary = review_text.split('\n\n')[0] if '\n\n' in review_text else review_text
-    
+
     # Truncate summary if too long
     truncated_summary = summary[:300] + '...' if len(summary) > 300 else summary
-    
+
     # Truncate full review for UI display
     full_review = review_text[:1000] + "..." if len(review_text) > 1000 else review_text
-    
+
     return {
         "decision": decision,
         "summary": truncated_summary,
         "full_review": full_review,
-        "accepted": is_accepted
+        "accepted": is_accepted,
+        "final_score": final_score,
+        "criteria_scores": scores
     }
 
 def generate_certificate(paper_title, submission_id):
