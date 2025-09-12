@@ -550,6 +550,9 @@ def analyze_paper_with_agent(agent, filepath, reviewer_name, submission_id):
     
     except Exception as e:
         print(f"Error in analysis with {reviewer_name}: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
         error_message = format_error_message(str(e))
         return {
             'decision': 'ERROR',
