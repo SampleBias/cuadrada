@@ -710,7 +710,7 @@ def process_reviews(upload_path, submission_id, user_id, paper_title, filename):
         all_accepted = True  # Start with True, will set to False if any reviewer doesn't accept
         
         for reviewer_name in reviewers_to_process:
-            agent = ClaudeAgent(model_index=1)  # Claude 3 Sonnet
+            agent = ClaudeAgent(model_index=0)  # Claude 3.5 Sonnet (latest)
             print(f"Processing {reviewer_name} for submission '{submission_id}'")
             result = analyze_paper_with_agent(agent, upload_path, reviewer_name, submission_id)
             

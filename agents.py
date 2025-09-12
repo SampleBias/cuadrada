@@ -64,13 +64,13 @@ class BaseReviewer(ABC):
 
     # Available Claude models ordered by capability (highest to lowest)
     CLAUDE_MODELS = [
-        "claude-3-opus-20240229",  # Most capable but more expensive
-        "claude-3-sonnet-20240229", # Default model
-        "claude-3-haiku-20240307",  # Faster but less capable
-        "claude-2.1",               # Fallback to older model
+        "claude-3-5-sonnet-20241022",  # Latest and most capable
+        "claude-3-5-sonnet-20240620",  # Previous version
+        "claude-3-haiku-20240307",     # Faster but less capable
+        "claude-3-opus-20240229",      # Fallback model
     ]
 
-    def __init__(self, model_index=1):  # Default to sonnet (index 1)
+    def __init__(self, model_index=0):  # Default to latest sonnet (index 0)
         self.setup_credentials()
         self.model_index = model_index
         self.current_model = self.CLAUDE_MODELS[model_index]
@@ -137,6 +137,6 @@ class BaseReviewer(ABC):
 
 class ClaudeAgent(BaseReviewer):
     """Claude-based reviewer with built-in fallback to less capable models"""
-    def __init__(self, model_index=1):  # Default to sonnet (index 1)
+    def __init__(self, model_index=0):  # Default to latest sonnet (index 0)
         super().__init__(model_index)
         print(f"Initialized ClaudeAgent with model: {self.current_model}") 
