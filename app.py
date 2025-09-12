@@ -1534,9 +1534,15 @@ def view_review_results(submission_id):
                             # Store review results in session for client-side access
                             session['review_results'] = result_data.get('results', {})
                             
+                            # DEBUG: Print what we're passing to the template
+                            results_data = result_data.get('results', {})
+                            print(f"DEBUG: Passing results to template for '{submission_id}': {list(results_data.keys())}")
+                            for reviewer, data in results_data.items():
+                                print(f"DEBUG: {reviewer}: {data.get('decision', 'NO_DECISION')} - {type(data)}")
+                            
                             return render_template(
                                 'results.html',
-                                results=result_data.get('results', {}),
+                                results=results_data,
                                 all_accepted=result_data.get('all_accepted', False),
                                 has_accepted=result_data.get('has_accepted', False),
                                 certificate_filename=result_data.get('certificate_filename'),
@@ -1641,9 +1647,15 @@ def view_review_results(submission_id):
         # Store review results in session for client-side access
         session['review_results'] = result_data.get('results', {})
         
+        # DEBUG: Print what we're passing to the template
+        results_data = result_data.get('results', {})
+        print(f"DEBUG: Final render - Passing results to template for '{submission_id}': {list(results_data.keys())}")
+        for reviewer, data in results_data.items():
+            print(f"DEBUG: {reviewer}: {data.get('decision', 'NO_DECISION')} - {type(data)}")
+        
         return render_template(
             'results.html',
-            results=result_data.get('results', {}),
+            results=results_data,
             all_accepted=result_data.get('all_accepted', False),
             has_accepted=result_data.get('has_accepted', False),
             certificate_filename=result_data.get('certificate_filename'),

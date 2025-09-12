@@ -119,7 +119,7 @@ class BaseReviewer(ABC):
                     backoff_time *= 2  # Exponential backoff
         
         # If we get here, all retries have been exhausted
-        raise Exception("Review limit reached for your current plan. The system attempted to use multiple models but was unable to complete your request due to rate limiting.")
+        raise Exception("Our AI review system is experiencing high demand. We tried multiple models but couldn't complete your review. Please try again in a few minutes.")
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF file"""
