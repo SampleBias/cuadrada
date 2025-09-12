@@ -291,45 +291,8 @@ def get_user_reviews(user_id):
 
 def check_subscription_limit(user_id):
     """Check if user has remaining reviews in their plan"""
-    # If no user_id is provided, allow the review (for anonymous users)
-    if not user_id:
-        return True
-    
-    max_retries = 3
-    retry_delay = 1  # Initial delay in seconds
-    
-    for attempt in range(max_retries):
-        try:
-            subscription = get_subscription(user_id)
-            if not subscription:
-                # No subscription found, allow only 1 free review
-                reviews = get_user_reviews(user_id)
-                return len(reviews) < 1
-            
-            if subscription.get('status') != 'active':
-                return False
-            
-            plan_type = subscription.get('plan_type', 'free')
-            if plan_type == 'unlimited':
-                return True
-            elif plan_type == 'premium':
-                # Premium plan: allow many reviews (set a high number or unlimited)
-                return True
-            else:
-                # Free plan: only 1 review allowed
-                reviews = get_user_reviews(user_id)
-                return len(reviews) < 1
-        
-        except Exception as e:
-            if 'rate limit' in str(e).lower() and attempt < max_retries - 1:
-                print(f"Rate limit hit when checking subscription. Retrying in {retry_delay} seconds... (Attempt {attempt+1}/{max_retries})")
-                time.sleep(retry_delay)
-                retry_delay *= 2  # Exponential backoff
-            else:
-                print(f"Error checking subscription limit: {str(e)}")
-                return True
-    print("Exhausted retries when checking subscription limits.")
-    return True  # Allow the review as a fallback
+    # Rate limiting removed - always allow reviews for all users
+    return True
 
 def fix_upload_file_to_storage(file_path, bucket_name='uploads'):
     """

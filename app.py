@@ -249,9 +249,7 @@ def generate_unique_filename():
 
 def format_error_message(error_str):
     """Convert technical error messages to user-friendly ones"""
-    if 'Review limit reached for your current plan' in error_str:
-        return "You have reached the review limit for your current plan. Please upgrade your subscription to continue using our service."
-    elif 'rate_limit_error' in error_str.lower() or 'rate limit' in error_str.lower():
+    if 'rate_limit_error' in error_str.lower() or 'rate limit' in error_str.lower():
         return "Our review system is currently busy. The system attempted to use alternative models but was still rate limited. Please wait 60 seconds and try again."
     elif 'authentication_error' in error_str.lower() or 'invalid x-api-key' in error_str.lower():
         return "There was an issue with our review system authentication. Please contact support."
@@ -646,14 +644,14 @@ def callback():
             }
             create_user(user_data)
             
-            # Create default subscription
+            # Create default subscription - now unlimited for all users
             subscription_data = {
                 'user_id': user_id,
-                'plan_type': 'free',
+                'plan_type': 'unlimited',
                 'status': 'active',
-                'max_reviews': 1,  # Only 1 free review allowed
+                'max_reviews': 999999,  # Unlimited reviews for all users
                 'current_period_start': datetime.now().isoformat(),
-                'current_period_end': (datetime.now() + timedelta(days=30)).isoformat()
+                'current_period_end': (datetime.now() + timedelta(days=365)).isoformat()
             }
             create_subscription(subscription_data)
         
@@ -812,11 +810,7 @@ def upload_file():
     # Get user ID from session if available
     user_id = session.get('profile', {}).get('user_id', None)
     
-    if not check_subscription_limit(user_id):
-        print(f"Review limit reached for user {user_id}")
-        return jsonify({
-            'error': 'Review limit reached for your current plan. Please upgrade your subscription to continue.'
-        }), 403
+    # Rate limiting removed - allow unlimited reviews for all users
     
     if 'paper' not in request.files:
         print("No file part in request")
@@ -1740,11 +1734,6 @@ def handle_exception(e):
     
     # For API endpoints, return JSON
     if request.path.startswith('/api/') or request.content_type == 'application/json':
-        # Check for rate limiting errors
-        if 'rate limit' in str(e).lower() or 'Review limit reached' in str(e):
-            return jsonify({
-                'error': format_error_message(str(e))
-            }), 403
         
         return jsonify({
             'error': 'An unexpected error occurred',
