@@ -382,28 +382,49 @@ def generate_certificate(paper_title, submission_id):
         
         # Add content with error handling for long titles
         try:
-            # Title wrapping with max width check
-            max_width = width - 2*inch
+            # Set font for paper title - larger and more prominent
+            c.setFont("Helvetica-Bold", 18)
+            
+            # Title wrapping with improved logic for better appearance
+            max_width = width - 3*inch  # More padding on sides for better centering
             title_lines = []
             current_line = []
             
-            for word in paper_title.split():
-                current_line.append(word)
-                if c.stringWidth(' '.join(current_line), "Helvetica-Bold", 14) > max_width:
-                    title_lines.append(' '.join(current_line[:-1]))
-                    current_line = [word]
+            # Split title into words and wrap intelligently
+            words = paper_title.split()
+            for word in words:
+                test_line = current_line + [word]
+                test_string = ' '.join(test_line)
+                # Check if adding this word would exceed max width
+                if c.stringWidth(test_string, "Helvetica-Bold", 18) > max_width:
+                    # If current_line has words, save it and start new line
+                    if current_line:
+                        title_lines.append(' '.join(current_line))
+                        current_line = [word]
+                    else:
+                        # Single word is too long, add it anyway
+                        title_lines.append(word)
+                        current_line = []
+                else:
+                    current_line.append(word)
+            
+            # Add any remaining words
             if current_line:
                 title_lines.append(' '.join(current_line))
             
-            # Draw title lines
-            y_position = height-3.5*inch
+            # Draw title lines centered with proper spacing
+            y_position = height - 3.5*inch
+            line_spacing = 28  # More space between lines for readability
+            
             for line in title_lines:
                 c.drawCentredString(width/2, y_position, line)
-                y_position -= 20
+                y_position -= line_spacing
 
-            # Add remaining content
-            c.drawCentredString(width/2, y_position-1*inch, "has successfully passed Cuadrada's")
-            c.drawCentredString(width/2, y_position-1.5*inch, "AI-powered peer review process")
+            # Add remaining content with proper spacing after title
+            c.setFont("Helvetica", 16)
+            y_position -= 0.6*inch  # Add extra space after title
+            c.drawCentredString(width/2, y_position, "has successfully passed Cuadrada's")
+            c.drawCentredString(width/2, y_position - 0.4*inch, "AI-powered peer review process")
             
             # Add metadata
             c.setFont("Helvetica", 12)
