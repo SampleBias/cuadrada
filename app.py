@@ -575,6 +575,19 @@ def analyze_paper_with_agent(agent, filepath, reviewer_name, submission_id):
             'model_used': agent.current_model if hasattr(agent, 'current_model') else 'unknown',
             'error_type': 'FileNotFoundError'
         }
+    except anthropic.NotFoundError as e:
+        error_msg = f"Model not found error for {reviewer_name}: {str(e)}"
+        print(error_msg)
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return {
+            'decision': 'ERROR',
+            'summary': f"The AI model configuration is outdated. Please contact support to update the system.",
+            'full_review': f"Model Not Found Error: {str(e)}",
+            'accepted': False,
+            'model_used': agent.current_model if hasattr(agent, 'current_model') else 'unknown',
+            'error_type': 'NotFoundError'
+        }
     except anthropic.APIError as e:
         error_msg = f"API error for {reviewer_name}: {str(e)}"
         print(error_msg)

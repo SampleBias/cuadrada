@@ -63,11 +63,12 @@ class BaseReviewer(ABC):
     """
 
     # Available Claude models ordered by capability (highest to lowest)
+    # Note: Using verified working models as of November 2024
     CLAUDE_MODELS = [
-        "claude-3-5-sonnet-20241022",  # Latest and most capable
-        "claude-3-5-sonnet-20240620",  # Previous version
-        "claude-3-haiku-20240307",     # Faster but less capable
-        "claude-3-opus-20240229",      # Fallback model
+        "claude-3-5-sonnet-20240620",  # Claude 3.5 Sonnet (most capable available)
+        "claude-3-opus-20240229",      # Claude 3 Opus (high quality)
+        "claude-3-sonnet-20240229",    # Claude 3 Sonnet (balanced)
+        "claude-3-haiku-20240307",     # Claude 3 Haiku (fast and economical)
     ]
 
     def __init__(self, model_index=0):  # Default to latest sonnet (index 0)
@@ -108,6 +109,19 @@ class BaseReviewer(ABC):
                 print(f"Successfully generated review with model {self.current_model}")
                 return response.content[0].text
                 
+            except anthropic.NotFoundError as e:
+                print(f"Model not found error with {self.current_model}: {str(e)}")
+                
+                # Model doesn't exist, immediately try next model without retry
+                if self.model_index < len(self.CLAUDE_MODELS) - 1:
+                    self.model_index += 1
+                    self.current_model = self.CLAUDE_MODELS[self.model_index]
+                    print(f"Model not available, switching to alternative model: {self.current_model}")
+                    # Reset retry count since we're trying a new model
+                    retry_count = 0
+                else:
+                    raise Exception(f"None of the configured models are available. Last error: {str(e)}")
+            
             except anthropic.RateLimitError as e:
                 print(f"Rate limit error with model {self.current_model}: {str(e)}")
                 
@@ -115,7 +129,7 @@ class BaseReviewer(ABC):
                 if self.model_index < len(self.CLAUDE_MODELS) - 1:
                     self.model_index += 1
                     self.current_model = self.CLAUDE_MODELS[self.model_index]
-                    print(f"Downgrading to alternative model: {self.current_model}")
+                    print(f"Rate limited, downgrading to alternative model: {self.current_model}")
                     # Reset retry count since we're trying a new model
                     retry_count = 0
                 else:
