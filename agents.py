@@ -91,6 +91,12 @@ class BaseReviewer(ABC):
         retry_count = 0
         backoff_time = 2  # Initial backoff time in seconds
         
+        # Validate input
+        if not paper_text or len(paper_text.strip()) < 100:
+            raise ValueError("Paper text is too short or empty. Please ensure you uploaded a valid research paper.")
+        
+        print(f"Generating review with model {self.current_model} (paper length: {len(paper_text)} chars)")
+        
         while retry_count < max_retries:
             try:
                 response = self.client.messages.create(
@@ -99,6 +105,7 @@ class BaseReviewer(ABC):
                     system=self.REVIEW_PROMPT,
                     messages=[{"role": "user", "content": paper_text}]
                 )
+                print(f"Successfully generated review with model {self.current_model}")
                 return response.content[0].text
                 
             except anthropic.RateLimitError as e:
@@ -117,23 +124,68 @@ class BaseReviewer(ABC):
                     print(f"No more models available. Retrying {self.current_model} after backoff. Attempt {retry_count}/{max_retries}")
                     time.sleep(backoff_time)
                     backoff_time *= 2  # Exponential backoff
+            
+            except anthropic.AuthenticationError as e:
+                print(f"Authentication error with model {self.current_model}: {str(e)}")
+                raise Exception(f"API authentication failed. Please check your API key configuration. Error: {str(e)}")
+            
+            except anthropic.BadRequestError as e:
+                print(f"Bad request error with model {self.current_model}: {str(e)}")
+                raise Exception(f"Invalid request to AI service. This might be due to content length or format issues. Error: {str(e)}")
+            
+            except anthropic.APIError as e:
+                print(f"API error with model {self.current_model}: {str(e)}")
+                # For general API errors, retry with backoff
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(f"Retrying after API error. Attempt {retry_count}/{max_retries}")
+                    time.sleep(backoff_time)
+                    backoff_time *= 2
+                else:
+                    raise Exception(f"AI service encountered an error after {max_retries} attempts. Error: {str(e)}")
         
         # If we get here, all retries have been exhausted
         raise Exception("Our AI review system is experiencing high demand. We tried multiple models but couldn't complete your review. Please try again in a few minutes.")
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF file"""
-        doc = fitz.open(pdf_path)
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        return text
+        try:
+            print(f"Extracting text from PDF: {pdf_path}")
+            
+            if not os.path.exists(pdf_path):
+                raise FileNotFoundError(f"PDF file not found at path: {pdf_path}")
+            
+            doc = fitz.open(pdf_path)
+            text = ""
+            page_count = len(doc)
+            print(f"PDF has {page_count} pages")
+            
+            for page_num, page in enumerate(doc, 1):
+                page_text = page.get_text()
+                text += page_text
+                print(f"Extracted {len(page_text)} chars from page {page_num}/{page_count}")
+            
+            doc.close()
+            
+            if not text or len(text.strip()) < 100:
+                raise ValueError(f"PDF appears to be empty or contains insufficient text (extracted {len(text)} chars). Please ensure the PDF contains readable text.")
+            
+            print(f"Successfully extracted {len(text)} total characters from PDF")
+            return text
+            
+        except Exception as e:
+            print(f"Error extracting text from PDF: {str(e)}")
+            raise
 
     def analyze_paper(self, input_path: str) -> str:
         """Analyze paper and return review text"""
-        paper_text = self.extract_text_from_pdf(input_path)
-        review = self.generate_review(paper_text)
-        return review
+        try:
+            paper_text = self.extract_text_from_pdf(input_path)
+            review = self.generate_review(paper_text)
+            return review
+        except Exception as e:
+            print(f"Error analyzing paper at {input_path}: {str(e)}")
+            raise
 
 class ClaudeAgent(BaseReviewer):
     """Claude-based reviewer with built-in fallback to less capable models"""
