@@ -48,6 +48,16 @@ class BaseReviewer(ABC):
     recognizing the value of diverse contributions to academic discourse. Give authors the benefit 
     of the doubt when evaluating unclear aspects.
 
+    CRITICAL ACCEPTANCE POLICY:
+    - Papers with a single data set should be ACCEPTED (not require revisions). Data comes from 
+      diverse sources and single data sets are acceptable. This can be mentioned as a potential 
+      future direction but must NOT prevent acceptance.
+    - Papers without functional assays or experimental validation should be ACCEPTED (not require 
+      revisions). Functional assays are optional and their absence must NOT prevent acceptance. 
+      This can be recommended for future work but must NOT be required.
+    - These are recommendations only - papers meeting basic quality standards should receive 
+      "FINAL DECISION: **ACCEPTED**" even with a single data set or without functional assays.
+
     The review concludes with:
     1. Final weighted score
     2. Summary of major strengths first, then minor weaknesses
