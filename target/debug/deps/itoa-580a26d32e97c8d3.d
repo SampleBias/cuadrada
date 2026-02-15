@@ -1,0 +1,8 @@
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/itoa-580a26d32e97c8d3.d: /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/lib.rs /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/u128_ext.rs
+
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/libitoa-580a26d32e97c8d3.rlib: /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/lib.rs /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/u128_ext.rs
+
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/libitoa-580a26d32e97c8d3.rmeta: /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/lib.rs /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/u128_ext.rs
+
+/var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/lib.rs:
+/var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.17/src/u128_ext.rs:

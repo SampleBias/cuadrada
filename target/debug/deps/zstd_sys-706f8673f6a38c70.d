@@ -1,0 +1,6 @@
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/zstd_sys-706f8673f6a38c70.d: /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/lib.rs /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/bindings_zstd.rs
+
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/libzstd_sys-706f8673f6a38c70.rmeta: /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/lib.rs /var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/bindings_zstd.rs
+
+/var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/lib.rs:
+/var/folders/f4/vzt3dmy11dlg_kn_4swxfhkm0000gn/T/cursor-sandbox-cache/4b885664ad950a144f37129dc9a85e7f/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/bindings_zstd.rs:

@@ -1,0 +1,1 @@
+std::iter::Map<std::iter::Filter<FilterMap<std::fs::ReadDir, fn(Result<std::fs::DirEntry, std::io::Error>) -> std::option::Option<std::fs::DirEntry> {Result::<std::fs::DirEntry, std::io::Error>::ok}>, {closure@src/templates.rs:15:29: 15:32}>, {closure@src/templates.rs:16:26: 16:29}>
