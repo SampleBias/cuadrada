@@ -448,7 +448,7 @@
     <div class="container">
         <div class="header-container">
             <h1>Review Results</h1>
-            <a href="{{ url_for('logout') }}" class="logout-button">
+            <a href="/" class="logout-button">
                 <svg width="16" height="16" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M17,17.25V14H10V10H17V6.75L22.25,12L17,17.25M13,2A2,2 0 0,1 15,4V8H13V4H4V20H13V16H15V20A2,2 0 0,1 13,22H4A2,2 0 0,1 2,20V4A2,2 0 0,1 4,2H13Z"/>
                 </svg>
@@ -457,7 +457,7 @@
         </div>
         
         {% macro download_button(filename, text="Download Review", classes="download-link") %}
-            <a href="{{ url_for('download_file', filename=filename) }}" class="{{ classes }}">
+            <a href="/download/{{ filename }}" class="{{ classes }}">
                 <svg width="16" height="16" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                 </svg>
@@ -472,7 +472,7 @@
         {% set submission_id = None %}
 
         {% for agent, data in results.items() %}
-            {% if agent != 'certificate_filename' and data is mapping %}
+            {% if agent != 'certificate_filename' and data is object %}
                 {% if data.decision == 'ACCEPTED' %}
                     {% set all_rejected = false %}
                     {% set has_accepted = true %}
@@ -492,7 +492,7 @@
 
         {% if submission_id %}
         <div class="download-all-section">
-            <a href="{{ url_for('download_all_reviews', submission_id=submission_id) }}" class="download-all-button">
+            <a href="/download_all/{{ submission_id }}" class="download-all-button">
                 <svg width="16" height="16" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M20,6H4V8H20V6M20,10H4V12H20V10M4,16H20V14H4V16M22,2H2V22H22V2Z"/>
                 </svg>
@@ -534,7 +534,7 @@
         {% endif %}
 
         {% for agent, data in results.items() %}
-            {% if agent != 'certificate_filename' and data is mapping %}
+            {% if agent != 'certificate_filename' and data is object %}
             <div class="review-card">
                 <div class="review-header">
                     <div class="review-title">
@@ -592,7 +592,7 @@
                              
             <!-- Alternative direct download link -->
             <div style="margin-top: 15px;">
-                <a href="{{ url_for('certificate_download') }}" class="certificate-button">
+                <a href="/download_certificate/{{ submission_id }}" class="certificate-button">
                     <svg width="16" height="16" viewBox="0 0 24 24">
                         <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                     </svg>
@@ -609,7 +609,7 @@
             <h2>🎉 Congratulations!</h2>
             <p>Your paper has been accepted by all reviewers. Use the button below to generate and download your certificate.</p>
             <!-- Direct generation and download button -->
-            <a href="{{ url_for('certificate_download') }}" class="certificate-button">
+            <a href="/download_certificate/{{ submission_id }}" class="certificate-button">
                 <svg width="16" height="16" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                 </svg>
@@ -631,7 +631,7 @@
             let acceptedReviews = 0;
             
             {% for agent, data in results.items() %}
-                {% if agent != 'certificate_filename' and data is mapping %}
+                {% if agent != 'certificate_filename' and data is object %}
                     console.log("{{ agent }} decision: {{ data.decision }}");
                     totalReviews++;
                     if ("{{ data.decision }}" === "ACCEPTED") {
@@ -672,7 +672,7 @@
         });
         </script>
         
-        <a href="{{ url_for('index') }}" class="back-link">← Back to Upload</a>
+            <a href="/" class="back-link">← Back to Upload</a>
 
         <footer class="footer">
             <p>Cuadrada is a product of Syndicate Laboratories</p>
@@ -908,7 +908,7 @@
                 
                 console.log(`Polling for status (attempt ${pollingCount}): /check_review_status/${submissionId}`);
                 
-                fetch(`/check_review_status/${submissionId}`)
+                fetch(`/api/status/${submissionId}`)
                     .then(response => {
                         console.log(`Poll response status: ${response.status}`);
                         if (!response.ok) {
@@ -962,7 +962,7 @@
                             clearTimeout(pollTimeout);
                             
                             // Force a hard refresh to ensure we get fresh data
-                            window.location.href = `/view_review_results/${submissionId}?_=${new Date().getTime()}`;
+                            window.location.href = `/results/${submissionId}?_=${new Date().getTime()}`;
                         } else if (data.status === 'error') {
                             // Show error message
                             console.error("Processing error:", data.message);
@@ -981,7 +981,7 @@
                                 <div class="error-icon">⏱️</div>
                                 <h3>Processing Taking Longer Than Expected</h3>
                                 <p>Your review is still processing. You can wait or return later to check the results.</p>
-                                <a href="/view_review_results/${submissionId}" class="retry-button">Check Again</a>
+                                <a href="/results/${submissionId}" class="retry-button">Check Again</a>
                                 <a href="/" class="retry-button" style="margin-left: 10px;">Return to Home</a>
                                 <div class="loading-spinner" style="margin-top: 20px;"></div>
                                 <p id="stillWorkingMsg">Still working on your review...</p>
@@ -1012,6 +1012,6 @@
     {% endif %}
     
     <!-- Fix for review outcome display -->
-    <script src="{{ url_for('static', filename='js/fix-results.js') }}"></script>
+    <script src="/static/js/fix-results.js"></script>
 </body>
 </html> 

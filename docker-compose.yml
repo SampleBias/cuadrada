@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cuadrada_postgres
+    environment:
+      POSTGRES_USER: cuadrada
+      POSTGRES_PASSWORD: cuadrada_dev
+      POSTGRES_DB: cuadrada
+    ports:
+      - "5432:5432"
+    volumes:
+      - cuadrada_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cuadrada -d cuadrada"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  cuadrada_pgdata:

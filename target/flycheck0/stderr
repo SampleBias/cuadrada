@@ -1,0 +1,52 @@
+   0.245316167s  INFO prepare_target{force=false package_id=cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada) target="cuadrada"}: cargo::core::compiler::fingerprint: fingerprint error for cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada)/Check { test: false }/TargetInner { name: "cuadrada", doc: true, ..: with_path("/Users/jamesutley/cuadrada/cuadrada/src/main.rs", Edition2021) }
+   0.245769417s  INFO prepare_target{force=false package_id=cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada) target="cuadrada"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/jamesutley/cuadrada/cuadrada/target/debug/.fingerprint/cuadrada-2504238605643bb9/bin-cuadrada`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: std::backtrace::Backtrace::create
+   1: cargo_util::paths::read_bytes
+   2: cargo_util::paths::read
+   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
+   4: cargo::core::compiler::fingerprint::prepare_target
+   5: cargo::core::compiler::compile
+   6: <cargo::core::compiler::build_runner::BuildRunner>::compile
+   7: cargo::ops::cargo_compile::compile_ws
+   8: cargo::ops::cargo_compile::compile_with_exec
+   9: cargo::ops::cargo_compile::compile
+  10: cargo::commands::check::exec
+  11: <cargo::cli::Exec>::exec
+  12: cargo::main
+  13: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+  14: std::rt::lang_start::<()>::{closure#0}
+  15: std::rt::lang_start_internal
+  16: _main
+   0.341829667s  INFO prepare_target{force=false package_id=cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada) target="cuadrada"}: cargo::core::compiler::fingerprint: fingerprint error for cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada)/Check { test: true }/TargetInner { name: "cuadrada", doc: true, ..: with_path("/Users/jamesutley/cuadrada/cuadrada/src/main.rs", Edition2021) }
+   0.341846959s  INFO prepare_target{force=false package_id=cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada) target="cuadrada"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/jamesutley/cuadrada/cuadrada/target/debug/.fingerprint/cuadrada-4b06009497c1c1f8/test-bin-cuadrada`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: std::backtrace::Backtrace::create
+   1: cargo_util::paths::read_bytes
+   2: cargo_util::paths::read
+   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
+   4: cargo::core::compiler::fingerprint::prepare_target
+   5: cargo::core::compiler::compile
+   6: <cargo::core::compiler::build_runner::BuildRunner>::compile
+   7: cargo::ops::cargo_compile::compile_ws
+   8: cargo::ops::cargo_compile::compile_with_exec
+   9: cargo::ops::cargo_compile::compile
+  10: cargo::commands::check::exec
+  11: <cargo::cli::Exec>::exec
+  12: cargo::main
+  13: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+  14: std::rt::lang_start::<()>::{closure#0}
+  15: std::rt::lang_start_internal
+  16: _main
+    Checking cuadrada v0.1.0 (/Users/jamesutley/cuadrada/cuadrada)
+error: could not compile `cuadrada` (bin "cuadrada" test) due to 6 previous errors; 9 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `cuadrada` (bin "cuadrada") due to 6 previous errors; 9 warnings emitted

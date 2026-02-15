@@ -799,31 +799,16 @@
                 </svg>
                 <span>Cuadrada - Autonomous AI Peer Review</span>
             </h1>
-            {% if session.get('logged_in') %}
-            <div class="user-profile">
-                <img src="{{ session.get('user_avatar') }}" alt="avatar" class="user-avatar">
-                <span class="user-name">{{ session.get('user_name') }}</span>
-            </div>
-            <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
-            {% endif %}
         </div>
         
-        {% if not session.get('logged_in') %}
-        <div class="login-section">
-            <h2>Welcome to Cuadrada</h2>
-            <p>Our AI-powered peer review system helps researchers validate their work with instant feedback.</p>
-            <a href="{{ url_for('login') }}" class="login-button">Login to Continue</a>
-        </div>
-        {% else %}
         <div class="upload-form">
-            <form id="reviewForm" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+            <form id="reviewForm" action="/upload" method="post" enctype="multipart/form-data">
                 <h2>Upload your paper for AI peer review</h2>
                 <input type="file" name="paper" accept=".pdf" required>
                 <input type="text" name="paper_title" placeholder="Enter paper title (for certificate)" required>
                 <input type="submit" value="Submit for Review">
             </form>
         </div>
-        {% endif %}
 
         <div class="info-section">
             <h2>How Does Cuadrada Work?</h2>
@@ -854,7 +839,7 @@
                 <div class="leaderboard-card king">
                     <div class="crown-icon">👑</div>
                     <div class="researcher-avatar">
-                        <img src="{{ url_for('static', filename='images/DrUT.jpeg') }}" alt="Dr. James Utley PhD avatar">
+                        <img src="/static/images/DrUT.jpeg" alt="Dr. James Utley PhD avatar" onerror="this.style.display='none'">
                     </div>
                     <div class="researcher-name">Dr. James Utley PhD</div>
                     <div class="researcher-stats">
@@ -906,7 +891,7 @@
                 </svg>
                 Contact Support
             </a>
-            <a href="{{ url_for('index') }}" class="support-link">
+            <a href="/" class="support-link">
                 <svg class="support-icon" width="16" height="16" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/>
                 </svg>

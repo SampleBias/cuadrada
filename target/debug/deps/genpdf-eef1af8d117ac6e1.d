@@ -1,0 +1,11 @@
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/genpdf-eef1af8d117ac6e1.d: /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/lib.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/wrap.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/elements.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/error.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/fonts.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/render.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/style.rs
+
+/Users/jamesutley/cuadrada/cuadrada/target/debug/deps/libgenpdf-eef1af8d117ac6e1.rmeta: /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/lib.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/wrap.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/elements.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/error.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/fonts.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/render.rs /Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/style.rs
+
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/lib.rs:
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/wrap.rs:
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/elements.rs:
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/error.rs:
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/fonts.rs:
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/render.rs:
+/Users/jamesutley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/genpdf-0.2.0/src/style.rs:
